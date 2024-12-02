@@ -62,13 +62,13 @@ export type _ObjectProperty = ObjectPropertyMeta & {
     -- get is a function ran when a property that doesn't exist is gotten
     -- in js it runs when you get a property at all even if it exists
     -- the only reason it's different is bc lua is shit
-    __get: nil | (_Object, name) -> any | nil,
-    __set: nil | (_Object, name, value) -> any | nil,
-    __delete: nil | (_Object, name) -> any | nil,
+    __get: nil | (_ObjectProperty, name) -> any | nil,
+    __set: nil | (_ObjecProperty, name, value) -> any | nil,
+    __delete: nil | (_ObjectProperty, name) -> any | nil,
 
     -- magic methods
-    __index: (_Object, name: any) -> any | nil,
-    __newindex: (_Object, name: any, value: any) -> any | nil,
+    __index: (_ObjectProperty, name: any) -> any | nil,
+    __newindex: (_ObjectProperty, name: any, value: any) -> any | nil,
 }
 
 
