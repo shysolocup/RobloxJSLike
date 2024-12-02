@@ -69,11 +69,23 @@ export type _ObjectProperty = ObjectPropertyMeta & {
     -- magic methods
     __index: (_ObjectProperty, name: any) -> any | nil,
     __newindex: (_ObjectProperty, name: any, value: any) -> any | nil,
+
+    __prototype: {[string]: any},
+
+    -- class data
+    __type: any,
+    __typename: string,
+    __extendees: {[number]: string} | nil,
 }
 
 
 
 function ObjectProperty.new(data: {[string]: any}): _ObjectProperty
+    data.__type = ObjectProperty.Prototype.__type,
+    data.__typename = ObjectProperty.Prototype.__typename,
+    data.__extendees = ObjectProperty.Prototype.__extendees,
+    data.__prototype = ObjectProperty.Prototype,
+
     setmetatable(data, ObjectProperty);
     return data :: _ObjectProperty;
 end
