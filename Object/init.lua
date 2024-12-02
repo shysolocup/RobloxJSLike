@@ -1,9 +1,6 @@
 --!strict
 
 
-local function nonfunc() end
-
-
 local Object = {
     __name = "Object"
 };
@@ -117,21 +114,24 @@ function Object.Prototype.__index(self: any, name: string): any | nil
     -- if it exists in properties get from there
     elseif rawget(self, "__properties")[name] then
         return rawget(self, "__properties")[name];
+    end
+
 end
 
 
 function Object.Prototype.__newindex(self: any, name: string, value: any): any | nil
-    local allowed = {
-        "__prototype"
-    };
 
-    if self.__properties
+    -- if it exists in properties then it should change the property
+    if self.__properties[name] then
+        return self.__properties[name];
 
-    if allowed[name] then
-        rawset(self, name, value);
+    -- if it doesn't then make a new property for it
     else
-        error("JSLike error: Cannot set property "..name.." of Object")
+        return Object.defineProperty(self, name, {
+            value = value
+        });
     end
+
 end
 
 
