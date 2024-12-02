@@ -26,7 +26,7 @@ type ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 
 
 export type _Object = ObjectMeta & {
-    __properties: _Descriptors,
+    __properties: any,
     __prototype: {[string]: any},
 
     -- class data
@@ -70,6 +70,13 @@ export type _ObjectProperty = ObjectPropertyMeta & {
     __index: (_ObjectProperty, name: any) -> any | nil,
     __newindex: (_ObjectProperty, name: any, value: any) -> any | nil,
 }
+
+
+
+function ObjectProperty.new(data: {[string]: any}): _ObjectProperty
+    setmetatable(data, ObjectProperty);
+    return data :: _ObjectProperty;
+end
 
 
 
@@ -176,7 +183,7 @@ function Object.defineProperty(self: any, name: string, data: {[string]: any}): 
         if not data[k] then data[k] = v; end
     end
 
-    local prop = prop :: _ObjectProperty
+    local prop = ObjectProperty.new(data);
 
     self.__properties[k] = prop;
 end
