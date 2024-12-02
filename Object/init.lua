@@ -11,11 +11,27 @@ Object.Prototype = {
 };
 
 
-type meta = typeof(setmetatable({}, Object.Prototype));
+local Descriptors = {
+    __name = "Descriptors"
+};
+Descriptors.Prototype = {
+    __type = Descriptors,
+    __typename = Descriptors.__name,
+    __extendees = {}
+};
 
 
-export type _Descriptors = {
+type ObjectMeta = typeof(setmetatable({}, Object.Prototype));
+type DescriptorMeta = typeof(setmetatable({}, Descriptors.Prototype));
+
+
+export type _Descriptors = DescriptorMeta & {
+
+    -- value of the property
     __value: any | nil,
+
+    -- if strict is on then it'll crash instead of just doing nothing when you piss off the 3 below this
+    -- it's false by default and not technically from the js version of objects but I added it bc you can technically do it by adding "use strict" to a file
     __strict: false,
 
     -- writable is for read only objects where you can't set things inside of the value
@@ -31,10 +47,19 @@ export type _Descriptors = {
     __get: (_Object, name) -> any | nil,
     __set: (_Object, name, value) -> any | nil,
     __delete: (_Object, name) -> any | nil,
+
+    -- class data
+    __type: any,
+    __typename: string,
+    __extendees: {[number]: string} | nil,
+
+    -- magic methods
+    __index: (_Object, name: any) -> any | nil,
+    __newindex: (_Object, name: any, value: any) -> any | nil,
 }
 
 
-export type _Object = meta & {
+export type _Object = ObjectMeta & {
     __descriptors: _Descriptors,
     __prototype: {[string]: any},
 
@@ -102,7 +127,9 @@ function copy(t)
 end
 
 
-function Object.getOwnPropertyDescriptors()
+function Object.defineProperty(self: any, name: string, data: {[string]: any}): nil
+    
+end
 
 
 function Object.new(data: {[string]: any}): _Object
@@ -118,7 +145,7 @@ function Object.new(data: {[string]: any}): _Object
 
             __get = nil,
             __set = nil,
-            __delete = nil
+            __delete = nil,
         };
 
         self[k] = desc;
