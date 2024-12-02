@@ -1,6 +1,9 @@
 --!strict
 
 
+local function nonfunc() end
+
+
 local Object = {
     __name = "Object"
 };
@@ -11,21 +14,21 @@ Object.Prototype = {
 };
 
 
-local Descriptors = {
-    __name = "Descriptors"
+local ObjectProperty = {
+    __name = "ObjectProperty"
 };
-Descriptors.Prototype = {
-    __type = Descriptors,
-    __typename = Descriptors.__name,
-    __extendees = {}
+ObjectProperty.Prototype = {
+    __type = ObjectProperty,
+    __typename = ObjectProperty.__name,
+    __extendees = {},
 };
 
 
 type ObjectMeta = typeof(setmetatable({}, Object.Prototype));
-type DescriptorMeta = typeof(setmetatable({}, Descriptors.Prototype));
+type ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 
 
-export type _Descriptors = DescriptorMeta & {
+export type _ObjectProperty = ObjectPropertyMeta & {
 
     -- value of the property
     __value: any | nil,
@@ -44,14 +47,9 @@ export type _Descriptors = DescriptorMeta & {
     -- get is a function ran when a property that doesn't exist is gotten
     -- in js it runs when you get a property at all even if it exists
     -- the only reason it's different is bc lua is shit
-    __get: (_Object, name) -> any | nil,
-    __set: (_Object, name, value) -> any | nil,
-    __delete: (_Object, name) -> any | nil,
-
-    -- class data
-    __type: any,
-    __typename: string,
-    __extendees: {[number]: string} | nil,
+    __get: nil | (_Object, name) -> any | nil,
+    __set: nil | (_Object, name, value) -> any | nil,
+    __delete: nil | (_Object, name) -> any | nil,
 
     -- magic methods
     __index: (_Object, name: any) -> any | nil,
@@ -60,7 +58,7 @@ export type _Descriptors = DescriptorMeta & {
 
 
 export type _Object = ObjectMeta & {
-    __descriptors: _Descriptors,
+    __properties: _Descriptors,
     __prototype: {[string]: any},
 
     -- class data
@@ -78,43 +76,35 @@ export type _Object = ObjectMeta & {
 
 
 
-function Object.Prototype.__index(self: any, name: any | nil): any | nil
-
-    local descriptors = rawget(self, "__descriptors");
+function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 
     -- if the prototype has it then get property through that
-    elseif rawget(Object.Prototype, name) then
-        return rawget(Object.Prototype, name);  
+    elseif rawget(ObjectProperty.Prototype, name) then
+        return rawget(ObjectProperty.Prototype, name);  
 
     -- if __get exists then get the property through that
-    elseif descriptors.__get then 
-        return descriptors.__get(self, name);
+    elseif self.__get then 
+        return self.__get(self, name);
     
     -- finally if it exists inside of the value itself
     else
-        return descriptors.__value;
+        return self.__value;
     end
+
 end
 
 
-function Object.Prototype.__newindex(self: any, name: any | nil, value: any | nil): any | nil
-    local descriptors = rawget(self, "__descriptors");
-
-    -- handling for writable
-    if descriptors.__writable then
-        if descriptors.__strict then error("Type error: Property "..name.." is read-only") end
-        return
-    end
-
+function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): any | nil
 
     -- if a __set value exists set through that
-    if descriptors.__set then
-        descriptors.__set(self, name, value);
+    if self.__set then
+        self.__set(self, name, value); -- tbl, property name, new value
     
     -- if a __set doesn't exist then set through the value
     else
-        descriptors.__value[name] = value;
+        self.__value[name] = value;
     end
+
 end
 
 
@@ -127,28 +117,58 @@ function copy(t)
 end
 
 
+function strstarts(String,Start)
+    return string.sub(String,1,string.len(Start))==Start
+ end
+
+
 function Object.defineProperty(self: any, name: string, data: {[string]: any}): nil
-    
+    local datafix = {};
+
+    for k, v in pairs(data) do
+        if not strstarts(k, "__") then k = "__"..k; end
+
+        datafix[k] = v;
+    end
+
+    data = datafix;
+
+    local base = {
+        __value = nil,
+
+        __writable = true,
+        __configurable = true,
+        __enumerable = true,
+
+        __get = nil,
+        __set = nil,
+        __delete = nil,
+    };
+
+    for k, v in pairs(base) do
+        if not data[k] then data[k] = v; end
+    end
+
+    local prop = prop :: _ObjectProperty
+
+    self.__properties[k] = prop;
 end
 
 
 function Object.new(data: {[string]: any}): _Object
-    local self = {};
+    local self = {
+        __type = Object.Prototype.__type,
+        __typename = Object.Prototype.__typename,
+        __extendees = Object.Prototype.__extendees,
+        __prototype = Object.Prototype,
+
+        __properties = {}
+    };
     
     for k, v in pairs(data) do
-        local desc: _Descriptors = {
-            __value = v,
-
-            __writable = { true },
-            __configurable = { true },
-            __enumerable = { true },
-
-            __get = nil,
-            __set = nil,
-            __delete = nil,
-        };
-
-        self[k] = desc;
+        Object.defineProperty(self, k, {
+            __value = v
+        });
     end
 
     setmetatable(self, Object.Prototype);
