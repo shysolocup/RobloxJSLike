@@ -28,6 +28,24 @@ type ObjectMeta = typeof(setmetatable({}, Object.Prototype));
 type ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 
 
+export type _Object = ObjectMeta & {
+    __properties: _Descriptors,
+    __prototype: {[string]: any},
+
+    -- class data
+    __type: any,
+    __typename: string,
+    __extendees: {[number]: string} | nil,
+
+    -- magic methods
+    __index: (_Object, name: any) -> any | nil,
+    __newindex: (_Object, name: any, value: any) -> any | nil,
+
+    -- typechecking method
+    __isA: (_Object, t: string) -> boolean,
+}
+
+
 export type _ObjectProperty = ObjectPropertyMeta & {
 
     -- value of the property
@@ -54,24 +72,6 @@ export type _ObjectProperty = ObjectPropertyMeta & {
     -- magic methods
     __index: (_Object, name: any) -> any | nil,
     __newindex: (_Object, name: any, value: any) -> any | nil,
-}
-
-
-export type _Object = ObjectMeta & {
-    __properties: _Descriptors,
-    __prototype: {[string]: any},
-
-    -- class data
-    __type: any,
-    __typename: string,
-    __extendees: {[number]: string} | nil,
-
-    -- magic methods
-    __index: (_Object, name: any) -> any | nil,
-    __newindex: (_Object, name: any, value: any) -> any | nil,
-
-    -- typechecking method
-    __isA: (_Object, t: string) -> boolean,
 }
 
 
@@ -105,6 +105,33 @@ function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any
         self.__value[name] = value;
     end
 
+end
+
+
+function Object.Prototype.__index(self: any, name: string): any | nil
+
+    -- if it exists in prototype then it has priority over properties
+    if rawget(self, "__prototype")[name] then
+        return rawget(self, "__prototype")[name];
+
+    -- if it exists in properties get from there
+    elseif rawget(self, "__properties")[name] then
+        return rawget(self, "__properties")[name];
+end
+
+
+function Object.Prototype.__newindex(self: any, name: string, value: any): any | nil
+    local allowed = {
+        "__prototype"
+    };
+
+    if self.__properties
+
+    if allowed[name] then
+        rawset(self, name, value);
+    else
+        error("JSLike error: Cannot set property "..name.." of Object")
+    end
 end
 
 
@@ -164,6 +191,8 @@ function Object.new(data: {[string]: any}): _Object
 
         __properties = {}
     };
+
+    self.__index = self.__properties;
     
     for k, v in pairs(data) do
         Object.defineProperty(self, k, {
