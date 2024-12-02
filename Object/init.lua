@@ -94,10 +94,29 @@ function copy(t)
 end
 
 
-function Object.new(data: any): _Object
-    for 
+function Object.new(data: {[string]: any}): _Object
+    local self = {};
     
-    local desc: _Descriptors = {
-        __value = 
-    }
+    for k, v in pairs(data) do
+        local desc: _Descriptors = {
+            __value = v,
+
+            __writable = true,
+            __configurable = true,
+            __enumerable = true,,
+
+            __get = nil,
+            __set = nil,
+            __delete = nil
+        };
+
+        self[k] = desc;
+    end
+
+    setmetatable(self, Object.Prototype);
+
+    local typed = self :: _Object;
+    table.freeze(typed);
+
+    return typed;
 end
