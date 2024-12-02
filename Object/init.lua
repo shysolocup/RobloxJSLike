@@ -16,6 +16,7 @@ type meta = typeof(setmetatable({}, Object.Prototype));
 
 export type _Descriptors = {
     __value: any | nil,
+    __strict: false,
 
     -- writable is for read only objects where you can't set things inside of the value
     -- enumerable is if it can be for looped
@@ -74,6 +75,13 @@ end
 function Object.Prototype.__newindex(self: any, name: any | nil, value: any | nil): any | nil
     local descriptors = rawget(self, "__descriptors");
 
+    -- handling for writable
+    if descriptors.__writable then
+        if descriptors.__strict then error("Type error: Property "..name.." is read-only") end
+        return
+    end
+
+
     -- if a __set value exists set through that
     if descriptors.__set then
         descriptors.__set(self, name, value);
@@ -94,6 +102,9 @@ function copy(t)
 end
 
 
+function Object.getOwnPropertyDescriptors()
+
+
 function Object.new(data: {[string]: any}): _Object
     local self = {};
     
@@ -101,9 +112,9 @@ function Object.new(data: {[string]: any}): _Object
         local desc: _Descriptors = {
             __value = v,
 
-            __writable = true,
-            __configurable = true,
-            __enumerable = true,,
+            __writable = { true },
+            __configurable = { true },
+            __enumerable = { true },
 
             __get = nil,
             __set = nil,
@@ -115,8 +126,5 @@ function Object.new(data: {[string]: any}): _Object
 
     setmetatable(self, Object.Prototype);
 
-    local typed = self :: _Object;
-    table.freeze(typed);
-
-    return typed;
+    return self :: _Object;
 end
