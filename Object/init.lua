@@ -100,8 +100,8 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__delete: nil | (_ObjectProperty, name: string) -> any | nil,
 
 	-- magic methods
-	__index: (_ObjectProperty, name: any) -> any | nil,
-	__newindex: (_ObjectProperty, name: any, value: any) -> boolean,
+	__index: (_ObjectProperty, name: string) -> any | nil,
+	__newindex: (_ObjectProperty, name: string, value: any) -> boolean,
 
 	__prototype: {[string]: any},
 
