@@ -35,7 +35,7 @@ Object.Prototype = {
 	__type = Object,
 	__typename = Object.__name,
 	__extendees = {},
-	__extendable = true
+	__extensible = true
 };
 
 
@@ -50,7 +50,7 @@ ObjectProperty.Prototype = {
 	__type = ObjectProperty,
 	__typename = ObjectProperty.__name,
 	__extendees = {},
-	__extendable = true
+	__extensible = true
 };
 
 
@@ -69,7 +69,7 @@ export type _Object = _ObjectMeta & {
 	__type: any,
 	__typename: string,
 	__extendees: {[number]: string} | nil,
-	__extendable: boolean,
+	__extensible: boolean,
 
 	-- magic methods
 	__index: (_Object, name: string) -> any | nil,
@@ -121,7 +121,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__type: any,
 	__typename: string,
 	__extendees: {[number]: string} | nil,
-	__extendable: boolean,
+	__extensible: boolean,
 	
 	-- typechecking method
 	__isA: (_ObjectProperty, t: string) -> boolean,
@@ -129,59 +129,33 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 
 
 
---- Controls how data is read inside the property
--- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
--- @param name Name of the property being gotten
-function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
-
-	-- if the prototype has it then get property through that
-	if rawget(ObjectProperty.Prototype, name) then
-		return rawget(ObjectProperty.Prototype, name);  
-
-	-- if __get exists then get the property through that
-	elseif rawget(self, "__get") then 
-		return rawget(self, "__get")(rawget(self, "__parent"));
-
-	-- if you want to get the __me value
-	elseif name == "__me" then
-		if rawget(self, "__value") then return rawget(self, "__value");
-		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
-		else return rawget(self, "__value")[name]; end
-
-	-- finally if it exists inside of the value itself
-	else
-		return rawget(self, "__value")[name];
-	end
-
-end
-
-
-
---- Controls how data is set inside the property
--- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
--- @param name Name of the property being gotten
--- @param value New value of the property that's being set
-function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
+--- Creates a new Object
+-- @param data Table of data to be used to create the Object
+function Object.new(data: {[string]: any}): _Object
+	if not data then data = {} end;
 	
-	-- if a __set value exists set through that
-	if rawget(self, "__set") then
-		rawget(self, "__set")(rawget(self, "__parent"), value); -- tbl, property name, new value
-		return true
+	local self = {
+		__properties = {},
+		__prototype = Object.Prototype,
+		
+		__type = Object.Prototype.__type,
+		__typename = Object.Prototype.__typename,
+		__extendees = Object.Prototype.__extendees,
+		__extensible = Object.Prototype.__extensible,
+	};
 
-	-- if a __set doesn't exist then set through the value
-	elseif rawget(self, "__value") then
-		rawget(self, "__value")[name] = value;
-		return true
-		
-	-- if it doesn't have a __set or a __value then throw error if on strict
-	else
-		if rawget(self, "__strict") then
-			JSLikeError.throw("Object.NoSet");
-		end
-		
-		return false;
+	for k, v in pairs(data) do
+		Object.defineProperty(self, k, {
+			__value = v,
+			__writable = true,
+			__configurable = true,
+			__enumerable = true
+		});
 	end
 
+	self = setmetatable(self, Object.Prototype);
+
+	return self :: _Object;
 end
 
 
@@ -240,65 +214,6 @@ end
 
 
 
---- Type checking method for an ObjectProperty
--- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
--- @param t Type string to be checked against
-function ObjectProperty.Prototype.__isA(self: any, t: string): boolean
-	return rawget(self, "__typename") == t;
-end
-
-
-
---- Creates a new ObjectProperty
--- @param self An Object instance acting as a parent/owner of the ObjectProperty
--- @param data Table of data to be used to create the ObjectProperty
-function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
-	if not data then data = {} end;
-	
-	data.__type = ObjectProperty.Prototype.__type;
-	data.__typename = ObjectProperty.Prototype.__typename;
-	data.__extendees = ObjectProperty.Prototype.__extendees;
-	data.__extendable = ObjectProperty.Prototype.__extendable;
-	data.__prototype = ObjectProperty.Prototype;
-
-	local datafix = {};
-
-	for k, v in pairs(data) do
-		if not strstarts(k, "__") then k = "__"..k; end
-		datafix[k] = v;
-	end
-
-	data = datafix;
-
-	local base = {
-		__value = nil,
-		__strict = config.strict.Value,
-
-		__writable = false,
-		__configurable = false,
-		__enumerable = false,
-
-		__get = nil,
-		__set = nil,
-		__delete = nil,
-		
-		__parent = parent,
-	};
-
-	for k, v in pairs(base) do
-		if not data[k] then data[k] = v; end
-	end
-	
-	if (data.__get or data.__set) and data.__value then
-		JSLikeError.throw("Object.Specify")
-	end
-
-	data = setmetatable(data, ObjectProperty.Prototype);
-	return data :: _ObjectProperty;
-end
-
-
-
 --- Creates a new property inside an Object
 -- @param self An Object instance you want to add the property to
 -- @param name Name of the property you want to add
@@ -352,7 +267,7 @@ end
 -- @param self An Object instance, if you use metamethods you should just ignore this
 function Object.Prototype.__super(self, ...): nil
 	for i, ext in pairs(rawget(self, "__extendees")) do
-		if not ext.__extendable then
+		if not ext.__extensible then
 			JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
 		else
 			for k, v, in pairs(ext.Prototype) do
@@ -365,6 +280,7 @@ function Object.Prototype.__super(self, ...): nil
 
 	return;
 end
+
 
 
 --- Gets entries in the object and puts them in a list
@@ -427,35 +343,128 @@ end
 
 
 
---- Creates a new Object
--- @param data Table of data to be used to create the Object
-function Object.new(data: {[string]: any}): _Object
-	if not data then data = {} end;
-	
-	local self = {
-		__properties = {},
-		__prototype = Object.Prototype,
-		
-		__type = Object.Prototype.__type,
-		__typename = Object.Prototype.__typename,
-		__extendees = Object.Prototype.__extendees,
-		__extendable = Object.Prototype.__extendable,
-	};
-
-	for k, v in pairs(data) do
-		Object.defineProperty(self, k, {
-			__value = v,
-			__writable = true,
-			__configurable = true,
-			__enumerable = true
-		});
-	end
-
-	self = setmetatable(self, Object.Prototype);
-
-	return self :: _Object;
+--- Checks if the object is extensible or not
+-- @param self An Object instance
+function Object.isExtensible(self: any): boolean
+	return rawget(self, "__extensible");
 end
 
+
+
+
+--- Creates a new ObjectProperty
+-- @param self An Object instance acting as a parent/owner of the ObjectProperty
+-- @param data Table of data to be used to create the ObjectProperty
+function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
+	if not data then data = {} end;
+	
+	data.__type = ObjectProperty.Prototype.__type;
+	data.__typename = ObjectProperty.Prototype.__typename;
+	data.__extendees = ObjectProperty.Prototype.__extendees;
+	data.__extensible = ObjectProperty.Prototype.__extensible;
+	data.__prototype = ObjectProperty.Prototype;
+
+	local datafix = {};
+
+	for k, v in pairs(data) do
+		if not strstarts(k, "__") then k = "__"..k; end
+		datafix[k] = v;
+	end
+
+	data = datafix;
+
+	local base = {
+		__value = nil,
+		__strict = config.strict.Value,
+
+		__writable = false,
+		__configurable = false,
+		__enumerable = false,
+
+		__get = nil,
+		__set = nil,
+		__delete = nil,
+		
+		__parent = parent,
+	};
+
+	for k, v in pairs(base) do
+		if not data[k] then data[k] = v; end
+	end
+	
+	if (data.__get or data.__set) and data.__value then
+		JSLikeError.throw("Object.Specify")
+	end
+
+	data = setmetatable(data, ObjectProperty.Prototype);
+	return data :: _ObjectProperty;
+end
+
+
+
+--- Type checking method for an ObjectProperty
+-- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
+-- @param t Type string to be checked against
+function ObjectProperty.Prototype.__isA(self: any, t: string): boolean
+	return rawget(self, "__typename") == t;
+end
+
+
+
+--- Controls how data is read inside the property
+-- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
+-- @param name Name of the property being gotten
+function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
+
+	-- if the prototype has it then get property through that
+	if rawget(ObjectProperty.Prototype, name) then
+		return rawget(ObjectProperty.Prototype, name);  
+
+	-- if __get exists then get the property through that
+	elseif rawget(self, "__get") then 
+		return rawget(self, "__get")(rawget(self, "__parent"));
+
+	-- if you want to get the __me value
+	elseif name == "__me" then
+		if rawget(self, "__value") then return rawget(self, "__value");
+		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
+		else return rawget(self, "__value")[name]; end
+
+	-- finally if it exists inside of the value itself
+	else
+		return rawget(self, "__value")[name];
+	end
+
+end
+
+
+
+--- Controls how data is set inside the property
+-- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
+-- @param name Name of the property being gotten
+-- @param value New value of the property that's being set
+function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
+	
+	-- if a __set value exists set through that
+	if rawget(self, "__set") then
+		rawget(self, "__set")(rawget(self, "__parent"), value); -- tbl, property name, new value
+		return true
+
+	-- if a __set doesn't exist then set through the value
+	elseif rawget(self, "__value") then
+		rawget(self, "__value")[name] = value;
+		return true
+		
+	-- if it doesn't have a __set or a __value then throw error if on strict
+	else
+		if rawget(self, "__strict") then
+			JSLikeError.throw("Object.NoSet");
+		end
+		
+		return false;
+	end
+
+end
 
 
 
