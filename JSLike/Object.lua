@@ -4,6 +4,7 @@
 
 local metamethods = { "__index", "__newindex", "__add", "__sub", "__mul", "__div", "__unm", "__mod", "__pow", "__idiv", "__band", "__bor", "__bxor", "__bnot", "__shl", "__shr", "__eq", "__lt", "__le", "__gt", "__ge", "__len", "__call", "__tostring", "__metatable", "__pairs", "__ipairs" };
 local config = script.Parent.Config;
+local JSLikeError = require(config.Errors);
 
 
 function clonetbl(t)
@@ -146,16 +147,24 @@ end
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
 function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
-
+	
 	-- if a __set value exists set through that
 	if rawget(self, "__set") then
 		rawget(self, "__set")(rawget(self, "__parent"), value); -- tbl, property name, new value
 		return true
 
 	-- if a __set doesn't exist then set through the value
-	else
+	elseif rawget(self, "__value") then
 		rawget(self, "__value")[name] = value;
 		return true
+		
+	-- if it doesn't have a __set or a __value then throw error if on strict
+	else
+		if rawget(self, "__strict") then
+			JSLikeError.throw("Object.NoSet");
+		end
+		
+		return false;
 	end
 
 end
@@ -192,9 +201,9 @@ function Object.Prototype.__newindex(self: any, name: string, value: any): boole
 	local props = rawget(self, "__properties");
 	local prop = props[name];
 	
-	if prop and not prop.__writable then
-		if prop.__strict then
-			error("JSLike error: cannot set "..name.." of read-only object")
+	if prop and not rawget(prop, "__writable") then
+		if rawget(prop, "__strict") then
+			JSLikeError.throw("Object.ReadOnly", name)
 		end
 	end
 	
@@ -211,7 +220,7 @@ end
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
 function Object.Prototype.__isA(self: any, t: string): boolean
-	return self.__typename == t;
+	return rawget(self, "__typename") == t;
 end
 
 
@@ -220,7 +229,7 @@ end
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
 function ObjectProperty.Prototype.__isA(self: any, t: string): boolean
-	return self.__typename == t;
+	return rawget(self, "__typename") == t;
 end
 
 
@@ -263,6 +272,10 @@ function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 	for k, v in pairs(base) do
 		if not data[k] then data[k] = v; end
 	end
+	
+	if (data.__get or data.__set) and data.__value then
+		JSLikeError.throw("Object.Specify")
+	end
 
 	data = setmetatable(data, ObjectProperty.Prototype);
 	return data :: _ObjectProperty;
@@ -276,7 +289,7 @@ end
 -- @param data Table of data to be used to create the property
 function Object.defineProperty(self: any, name: string, data: {[string]: any}): _ObjectProperty
 	local prop = ObjectProperty.new(self, data);
-	self.__properties[name] = prop;
+	rawget(self, "__properties")[name] = prop;
 	return prop;
 end
 
@@ -288,7 +301,7 @@ end
 function Object.defineProperties(self: any, properties: {[string]: any}): nil
 	for name, data in pairs(properties) do
 		local prop = ObjectProperty.new(self, data);
-		self.__properties[name] = prop;
+		rawget(self, "__properties")[name] = prop;
 	end
 	
 	return
@@ -300,7 +313,7 @@ end
 -- @param self Object instance to get descriptors from
 -- @param name Name of the property you want to get
 function Object.getOwnPropertyDescriptor(self: any, name: string): {[string]: any}
-	local clone = clonetbl(self.__properties[name]);
+	local clone = clonetbl(rawget(self, "__properties")[name]);
 	return clone;
 end
 
@@ -311,7 +324,7 @@ end
 function Object.getOwnPropertyDescriptors(self: any): {[string]: any}
 	local desc = {};
 	
-	for k in pairs(self.__properties) do
+	for k in pairs(rawget(self, "__properties")) do
 		desc[k] = Object.getOwnPropertyDescriptor(self, k);
 	end
 	
@@ -344,6 +357,8 @@ function Object.new(data: {[string]: any}): _Object
 	end
 
 	self = setmetatable(self, Object.Prototype);
+	
+	table.freeze(self);
 
 	return self :: _Object;
 end
