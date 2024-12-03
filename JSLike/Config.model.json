@@ -1,0 +1,6 @@
+{
+  "ClassName": "Configuration",
+  "Children": [
+    { "Name": "strict", "ClassName": "BoolValue" }
+  ]
+}
