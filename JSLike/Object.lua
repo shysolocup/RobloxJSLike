@@ -29,10 +29,13 @@ local Object = {
 	__name = "Object"
 };
 
+
+
 Object.Prototype = {
 	__type = Object,
 	__typename = Object.__name,
-	__extendees = {}
+	__extendees = {},
+	__extendable = true
 };
 
 
@@ -47,6 +50,7 @@ ObjectProperty.Prototype = {
 	__type = ObjectProperty,
 	__typename = ObjectProperty.__name,
 	__extendees = {},
+	__extendable = true
 };
 
 
@@ -65,6 +69,7 @@ export type _Object = _ObjectMeta & {
 	__type: any,
 	__typename: string,
 	__extendees: {[number]: string} | nil,
+	__extendable: boolean,
 
 	-- magic methods
 	__index: (_Object, name: string) -> any | nil,
@@ -72,6 +77,9 @@ export type _Object = _ObjectMeta & {
 
 	-- typechecking method
 	__isA: (_Object, t: string) -> boolean,
+
+	-- extensions
+	__super: (_Object) -> nil
 }
 
 
@@ -113,6 +121,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__type: any,
 	__typename: string,
 	__extendees: {[number]: string} | nil,
+	__extendable: boolean,
 	
 	-- typechecking method
 	__isA: (_ObjectProperty, t: string) -> boolean,
@@ -132,6 +141,12 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 	-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
 		return rawget(self, "__get")(rawget(self, "__parent"));
+
+	-- if you want to get the __me value
+	elseif name == "__me" then
+		if rawget(self, "__value") then return rawget(self, "__value");
+		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
+		else return rawget(self, "__value")[name]; end
 
 	-- finally if it exists inside of the value itself
 	else
@@ -243,6 +258,7 @@ function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 	data.__type = ObjectProperty.Prototype.__type;
 	data.__typename = ObjectProperty.Prototype.__typename;
 	data.__extendees = ObjectProperty.Prototype.__extendees;
+	data.__extendable = ObjectProperty.Prototype.__extendable;
 	data.__prototype = ObjectProperty.Prototype;
 
 	local datafix = {};
@@ -332,6 +348,84 @@ function Object.getOwnPropertyDescriptors(self: any): {[string]: any}
 end
 
 
+--- Applies extendees
+-- @param self An Object instance, if you use metamethods you should just ignore this
+function Object.Prototype.__super(self, ...): nil
+	for i, ext in pairs(rawget(self, "__extendees")) do
+		if not ext.__extendable then
+			JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
+		else
+			for k, v, in pairs(ext.Prototype) do
+				if not rawget(self, "__prototype")[k] then
+					rawget(self, "__prototype[k]") = v;
+				end
+			end
+		end
+	end
+
+	return;
+end
+
+
+--- Gets entries in the object and puts them in a list
+-- @param self An Object instance
+function Object.entries(self: any): {[number]: {any, any}}
+	local entries = {};
+	
+	for k, v in pairs(rawget(self, "__properties")) do
+		entries.insert({
+			k, v.__me
+		});
+	end
+
+	return entries;
+end
+
+
+--- Gets keys in the object and puts them into a list
+-- @param self An Object instance
+function Object.keys(self: any): {[number]: any}
+	local keys = {};
+	
+	for k, v in pairs(rawget(self, "__properties")) do
+		keys.insert(k);
+	end
+
+	return keys;
+end
+
+
+
+--- Gets values in the object and puts them into a list
+-- @param self An Object instance
+function Object.values(self: any): {[number]: any}
+	local values = {};
+	
+	for k, v in pairs(rawget(self, "__properties")) do
+		values.insert(v.__me);
+	end
+
+	return values;
+end
+
+
+
+--- Prevents new properties from being added to an object, and prevents existing properties from being removed or modified. Returns the object
+-- @param self An Object instance
+function Object.freeze(self: any): any
+	table.freeze(rawget(self, "__properties"));
+	return self;
+end
+
+
+
+--- Checks if the object is frozen or not
+-- @param self An Object instance
+function Object.isFrozen(self: any): boolean
+	return table.isfrozen(rawget(self, "__properties"))
+end
+
+
 
 --- Creates a new Object
 -- @param data Table of data to be used to create the Object
@@ -345,6 +439,7 @@ function Object.new(data: {[string]: any}): _Object
 		__type = Object.Prototype.__type,
 		__typename = Object.Prototype.__typename,
 		__extendees = Object.Prototype.__extendees,
+		__extendable = Object.Prototype.__extendable,
 	};
 
 	for k, v in pairs(data) do
@@ -357,8 +452,6 @@ function Object.new(data: {[string]: any}): _Object
 	end
 
 	self = setmetatable(self, Object.Prototype);
-	
-	table.freeze(self);
 
 	return self :: _Object;
 end
@@ -371,42 +464,42 @@ end
 
 
 
-function ObjectProperty.Prototype.__add(self, a) return self.__value + a; end
-function ObjectProperty.Prototype.__sub(self, a) return self.__value - a; end
-function ObjectProperty.Prototype.__mul(self, a) return self.__value * a; end
-function ObjectProperty.Prototype.__div(self, a) return self.__value / a; end
-function ObjectProperty.Prototype.__unm(self, a) return -self.__value; end
-function ObjectProperty.Prototype.__mod(self, a) return self.__value % a; end
-function ObjectProperty.Prototype.__pow(self, a) return self.__value ^ a; end
-function ObjectProperty.Prototype.__idiv(self, a) return self.__value // a; end
+function ObjectProperty.Prototype.__add(self, a) return self.__me + a; end
+function ObjectProperty.Prototype.__sub(self, a) return self.__me - a; end
+function ObjectProperty.Prototype.__mul(self, a) return self.__me * a; end
+function ObjectProperty.Prototype.__div(self, a) return self.__me / a; end
+function ObjectProperty.Prototype.__unm(self, a) return -self.__me; end
+function ObjectProperty.Prototype.__mod(self, a) return self.__me % a; end
+function ObjectProperty.Prototype.__pow(self, a) return self.__me ^ a; end
+function ObjectProperty.Prototype.__idiv(self, a) return self.__me // a; end
 
 
 -- these don't work whether it's my fault or not idk
 
--- function ObjectProperty.Prototype.__band(self, a) return self.__value & a; end
--- function ObjectProperty.Prototype.__bor(self, a) return self.__value | a; end
--- function ObjectProperty.Prototype.__bxor(self, a) return self.__value ^ a; end
--- function ObjectProperty.Prototype.__bnot(self) return ~self.__value; end
--- function ObjectProperty.Prototype.__shl(self, a) return self.__value << a; end
--- function ObjectProperty.Prototype.__shr(self, a) return self.__value >> a; end
+-- function ObjectProperty.Prototype.__band(self, a) return self.__me & a; end
+-- function ObjectProperty.Prototype.__bor(self, a) return self.__me | a; end
+-- function ObjectProperty.Prototype.__bxor(self, a) return self.__me ^ a; end
+-- function ObjectProperty.Prototype.__bnot(self) return ~self.__me; end
+-- function ObjectProperty.Prototype.__shl(self, a) return self.__me << a; end
+-- function ObjectProperty.Prototype.__shr(self, a) return self.__me >> a; end
 
 
 
-function ObjectProperty.Prototype.__eq(self, a) return self.__value == a; end
-function ObjectProperty.Prototype.__lt(self, a) return self.__value < a; end
-function ObjectProperty.Prototype.__le(self, a) return self.__value <= a; end
-function ObjectProperty.Prototype.__gt(self, a) return self.__value > a; end
-function ObjectProperty.Prototype.__ge(self, a) return self.__value >= a; end
+function ObjectProperty.Prototype.__eq(self, a) return self.__me == a; end
+function ObjectProperty.Prototype.__lt(self, a) return self.__me < a; end
+function ObjectProperty.Prototype.__le(self, a) return self.__me <= a; end
+function ObjectProperty.Prototype.__gt(self, a) return self.__me > a; end
+function ObjectProperty.Prototype.__ge(self, a) return self.__me >= a; end
 
 
-function ObjectProperty.Prototype.__len(self) return #self.__value; end
-function ObjectProperty.Prototype.__call(self, ...) return self.__value(...); end
+function ObjectProperty.Prototype.__len(self) return #self.__me; end
+function ObjectProperty.Prototype.__call(self, ...) return self.__me(...); end
 
 
-function ObjectProperty.Prototype.__tostring(self) return tostring(self.__value); end
-function ObjectProperty.Prototype.__metatable(self) return self.__value.__metatable; end
-function ObjectProperty.Prototype.__pairs(self) return pairs(self.__value); end
-function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__value); end
+function ObjectProperty.Prototype.__tostring(self) return tostring(self.__me); end
+function ObjectProperty.Prototype.__metatable(self) return self.__me.__metatable; end
+function ObjectProperty.Prototype.__pairs(self) return pairs(self.__me); end
+function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__me); end
 
 
 
