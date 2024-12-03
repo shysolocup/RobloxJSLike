@@ -130,7 +130,7 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 
 	-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
-		return rawget(self, "__get")(rawget(self, "__parent"), name);
+		return rawget(self, "__get")(rawget(self, "__parent"));
 
 	-- finally if it exists inside of the value itself
 	else
@@ -149,7 +149,7 @@ function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any
 
 	-- if a __set value exists set through that
 	if rawget(self, "__set") then
-		rawget(self, "__set")(rawget(self, "__parent"), name, value); -- tbl, property name, new value
+		rawget(self, "__set")(rawget(self, "__parent"), value); -- tbl, property name, new value
 		return true
 
 	-- if a __set doesn't exist then set through the value
@@ -278,6 +278,20 @@ function Object.defineProperty(self: any, name: string, data: {[string]: any}): 
 	local prop = ObjectProperty.new(self, data);
 	self.__properties[name] = prop;
 	return prop;
+end
+
+
+
+--- Creates new properties inside an Object
+-- @param self An Object instance you want to add the properties to
+-- @param properties Table of properties to be used to create properties: { [name] = { [descriptor] = [any] } }
+function Object.defineProperties(self: any, properties: {[string]: any}): nil
+	for name, data in pairs(properties) do
+		local prop = ObjectProperty.new(self, data);
+		self.__properties[name] = prop;
+	end
+	
+	return
 end
 
 
