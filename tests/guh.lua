@@ -1,7 +1,18 @@
-local Object = require(game.ReplicatedStorage.Modules.JSLike);
+local Object = require(game.ReplicatedStorage.JSLike.Object);
+local err = require(game.ReplicatedStorage.JSLike.Config.Errors);
+local obj = Object.new();
 
-local obj = Object.new({
-    k1: "v1",
-    k2: "v2",
-});
+local a = "b";
 
+Object.defineProperty(obj, "test", {
+	get = function(self)
+		return a;
+	end,
+})
+
+
+print(obj.test)
+
+obj.test = "c";
+
+print(obj.test);
