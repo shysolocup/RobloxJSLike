@@ -5,7 +5,6 @@
 local metamethods = { "__index", "__newindex", "__add", "__sub", "__mul", "__div", "__unm", "__mod", "__pow", "__idiv", "__band", "__bor", "__bxor", "__bnot", "__shl", "__shr", "__eq", "__lt", "__le", "__gt", "__ge", "__len", "__call", "__tostring", "__metatable", "__pairs", "__ipairs" };
 
 
-
 function clonetbl(t)
 	local t2 = {}
 	for k,v in pairs(t) do
@@ -66,8 +65,8 @@ export type _Object = _ObjectMeta & {
 	__extendees: {[number]: string} | nil,
 
 	-- magic methods
-	__index: (_Object, name: any) -> any | nil,
-	__newindex: (_Object, name: any, value: any) -> boolean,
+	__index: (_Object, name: string) -> any | nil,
+	__newindex: (_Object, name: string, value: any) -> boolean,
 
 	-- typechecking method
 	__isA: (_Object, t: string) -> boolean,
@@ -80,10 +79,13 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 
 	-- value of the property
 	__value: any | nil,
+	
+	-- parent Object that the property is in
+	__parent: any | nil,
 
 	-- if strict is on then it'll crash instead of just doing nothing when you piss off the 3 below this
 	-- it's false by default and not technically from the js version of objects but I added it bc you can technically do it by adding "use strict" to a file
-	__strict: false,
+	__strict: boolean,
 
 	-- writable is for read only objects where you can't set things inside of the value
 	-- enumerable is if it can be for looped
@@ -127,7 +129,7 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 
 	-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
-		return rawget(self, "__get")(self, name);
+		return rawget(self, "__get")(rawget(self, "__parent"), name);
 
 	-- finally if it exists inside of the value itself
 	else
@@ -137,6 +139,7 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 end
 
 
+
 --- Controls how data is set inside the property
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
@@ -144,13 +147,13 @@ end
 function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
 
 	-- if a __set value exists set through that
-	if self.__set then
-		self.__set(self, name, value); -- tbl, property name, new value
+	if rawget(self, "__set") then
+		rawget(self, "__set")(rawget(self, "__parent"), name, value); -- tbl, property name, new value
 		return true
 
 	-- if a __set doesn't exist then set through the value
 	else
-		self.__value[name] = value;
+		rawget(self, "__value")[name] = value;
 		return true
 	end
 
@@ -184,6 +187,16 @@ end
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
 function Object.Prototype.__newindex(self: any, name: string, value: any): boolean
+	
+	local props = rawget(self, "__properties");
+	local prop = props[name];
+	
+	if prop and not prop.__writable then
+		if prop.__strict then
+			error("JSLike error: cannot set "..name.." of read-only object")
+		end
+	end
+	
 	Object.defineProperty(self, name, {
 		value = value
 	});
@@ -212,8 +225,9 @@ end
 
 
 --- Creates a new ObjectProperty
+-- @param self An Object instance acting as a parent/owner of the ObjectProperty
 -- @param data Table of data to be used to create the ObjectProperty
-function ObjectProperty.new(data: {[string]: any}): _ObjectProperty
+function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 	if not data then data = {} end;
 	
 	data.__type = ObjectProperty.Prototype.__type;
@@ -234,13 +248,15 @@ function ObjectProperty.new(data: {[string]: any}): _ObjectProperty
 		__value = nil,
 		__strict = false,
 
-		__writable = true,
-		__configurable = true,
-		__enumerable = true,
+		__writable = false,
+		__configurable = false,
+		__enumerable = false,
 
 		__get = nil,
 		__set = nil,
 		__delete = nil,
+		
+		__parent = parent,
 	};
 
 	for k, v in pairs(base) do
@@ -258,7 +274,7 @@ end
 -- @param name Name of the property you want to add
 -- @param data Table of data to be used to create the property
 function Object.defineProperty(self: any, name: string, data: {[string]: any}): _ObjectProperty
-	local prop = ObjectProperty.new(data);
+	local prop = ObjectProperty.new(self, data);
 	self.__properties[name] = prop;
 	return prop;
 end
@@ -305,7 +321,10 @@ function Object.new(data: {[string]: any}): _Object
 
 	for k, v in pairs(data) do
 		Object.defineProperty(self, k, {
-			__value = v
+			__value = v,
+			__writable = true,
+			__configurable = true,
+			__enumerable = true
 		});
 	end
 
@@ -348,6 +367,7 @@ function ObjectProperty.Prototype.__len(self) return #self.__value; end
 function ObjectProperty.Prototype.__call(self, ...) return self.__value(...); end
 
 
+function ObjectProperty.Prototype.__tostring(self) return tostring(self.__value); end
 function ObjectProperty.Prototype.__metatable(self) return self.__value.__metatable; end
 function ObjectProperty.Prototype.__pairs(self) return pairs(self.__value); end
 function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__value); end
