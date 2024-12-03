@@ -336,6 +336,12 @@ end
 
 
 
+
+-- below this point is hell unless you want your eyes gouged out probably don't look down here
+
+
+
+
 function ObjectProperty.Prototype.__add(self, a) return self.__value + a; end
 function ObjectProperty.Prototype.__sub(self, a) return self.__value - a; end
 function ObjectProperty.Prototype.__mul(self, a) return self.__value * a; end
