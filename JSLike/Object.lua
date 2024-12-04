@@ -145,12 +145,16 @@ function Object.new(data: {[string]: any}): _Object
 	};
 
 	for k, v in pairs(data) do
-		Object.defineProperty(self, k, {
-			__value = v,
-			__writable = true,
-			__configurable = true,
-			__enumerable = true
-		});
+		if typeof(v) == "table" and v.__typename == "ObjectProperty" then
+			rawget(self, "__property")[k] = v;
+		else
+			Object.defineProperty(self, k, {
+				__value = v,
+				__writable = true,
+				__configurable = true,
+				__enumerable = true
+			});
+		end
 	end
 
 	self = setmetatable(self, Object.Prototype);
@@ -278,20 +282,85 @@ function Object.getOwnPropertyDescriptors(self: any): {[string]: any}
 end
 
 
+
+--- Assigns variables from on Object or Table to an Object
+-- @param self Object instance to assign variables to
+-- @param ... Objects or Tables to assign variables from
+function Object.assign(self: any, ...): boolean
+	for _, assignee in pairs({...}) do
+		if typeof(assignee) == "table" and assignee.__typename == "Object" then
+			assignee = rawget(assignee, "__properties");
+		end
+		
+		for k, v in pairs(assignee) do
+			if typeof(v) == "table" and v.__typename == "ObjectProperty" then
+				rawget(self, "__properties")[k] = v;
+			else
+				Object.defineProperty(self, k, {
+					__value = v,
+					__writable = true,
+					__configurable = true,
+					__enumerable = true
+				});
+			end
+		end
+	end
+	
+	return true
+end
+
+
+
+--- Assigns variables from on Object or Table to an Object without overwriting existing variables
+-- @param self Object instance to assign variables to
+-- @param ... Objects or Tables to assign variables from
+function Object.assignNoOverwrite(self: any, ...): boolean
+	for _, assignee in pairs({...}) do
+		if typeof(assignee) == "table" and assignee.__typename == "Object" then
+			assignee = rawget(assignee, "__properties");
+		end
+
+		for k, v in pairs(assignee) do
+			if not rawget(self, "__properties")[k] then
+				if typeof(v) == "table" and v.__typename == "ObjectProperty" then
+					rawget(self, "__properties")[k] = v;
+				else
+					Object.defineProperty(self, k, {
+						__value = v,
+						__writable = true,
+						__configurable = true,
+						__enumerable = true
+					});
+				end
+			end
+		end
+	end
+
+	return true
+end
+
+
+
 --- Applies extendees
 -- @param self An Object instance, if you use metamethods you should just ignore this
-function Object.Prototype.__super(self, ...): nil
+-- @param ... Arguments you want to run the extendees with
+function Object.super(self: any, ...): nil
 	for i, ext in pairs(rawget(self, "__extendees")) do
-		if not ext.__extensible then
+		if not ext.Prototype.__extensible then
 			if config.strict.Value then
 				JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
 			else
 				JSLikeError.warn("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
 			end
 		else
+			
+			local new = ext.new(...);
+			
+			Object.assignNoOverwrite(self, new);
+			
 			for k, v in pairs(ext.Prototype) do
 				if not rawget(self, "__prototype")[k] then
-					rawset(self, "__prototype[k]", v);
+					rawget(self, "__prototype")[k] = v;
 				end
 			end
 		end
@@ -526,7 +595,6 @@ function ObjectProperty.Prototype.__len(self) return #self.__me; end
 function ObjectProperty.Prototype.__call(self, ...) return self.__me(...); end
 
 
-function ObjectProperty.Prototype.__tostring(self) return tostring(self.__me); end
 function ObjectProperty.Prototype.__metatable(self) return self.__me.__metatable; end
 function ObjectProperty.Prototype.__pairs(self) return pairs(self.__me); end
 function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__me); end
