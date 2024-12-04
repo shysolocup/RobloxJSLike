@@ -21,6 +21,18 @@ Array.Prototype = {
 };
 
 
+local base = {
+	length = {
+		__get = function(self)
+			return #self;
+		end,
+		__writable = false,
+		__configurable = false,
+		__enumerable = false
+	}
+}
+
+
 type _ArrayMeta = typeof(setmetatable({}, Array.Prototype));
 
 
@@ -71,6 +83,10 @@ function Array.new(data: {[string]: any}): _Array
 	end
 
 	self = setmetatable(self, Array.Prototype);
+	
+	for k, v in pairs(base) do
+		Object.defineProperty(self, k, v);
+	end
 
 	return self :: _Array;
 end
