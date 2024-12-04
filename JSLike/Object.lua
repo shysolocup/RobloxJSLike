@@ -89,7 +89,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 
 	-- value of the property
 	__value: any | nil,
-	
+
 	-- parent Object that the property is in
 	__parent: any | nil,
 
@@ -122,7 +122,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__typename: string,
 	__extendees: {[number]: string} | nil,
 	__extensible: boolean,
-	
+
 	-- typechecking method
 	__isA: (_ObjectProperty, t: string) -> boolean,
 }
@@ -133,11 +133,11 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 -- @param data Table of data to be used to create the Object
 function Object.new(data: {[string]: any}): _Object
 	if not data then data = {} end;
-	
+
 	local self = {
 		__properties = {},
 		__prototype = Object.Prototype,
-		
+
 		__type = Object.Prototype.__type,
 		__typename = Object.Prototype.__typename,
 		__extendees = Object.Prototype.__extendees,
@@ -172,7 +172,7 @@ function Object.Prototype.__index(self: any, name: string): any | nil
 		-- if it exists in properties get from there
 	elseif rawget(self, "__properties")[name] then
 		return rawget(self, "__properties")[name];
-		
+
 	else
 		return nil;
 	end
@@ -186,20 +186,20 @@ end
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
 function Object.Prototype.__newindex(self: any, name: string, value: any): boolean
-	
+
 	local props = rawget(self, "__properties");
 	local prop = props[name];
-	
+
 	if prop and not rawget(prop, "__writable") then
 		if rawget(prop, "__strict") then
 			JSLikeError.throw("Object.ReadOnly", name)
 		end
 	end
-	
+
 	Object.defineProperty(self, name, {
 		value = value
 	});
-	
+
 	return true;
 end
 
@@ -234,7 +234,7 @@ function Object.defineProperties(self: any, properties: {[string]: any}): nil
 		local prop = ObjectProperty.new(self, data);
 		rawget(self, "__properties")[name] = prop;
 	end
-	
+
 	return
 end
 
@@ -254,11 +254,11 @@ end
 -- @param self Object instance to get descriptors from
 function Object.getOwnPropertyDescriptors(self: any): {[string]: any}
 	local desc = {};
-	
+
 	for k in pairs(rawget(self, "__properties")) do
 		desc[k] = Object.getOwnPropertyDescriptor(self, k);
 	end
-	
+
 	return desc
 end
 
@@ -270,9 +270,9 @@ function Object.Prototype.__super(self, ...): nil
 		if not ext.__extensible then
 			JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
 		else
-			for k, v, in pairs(ext.Prototype) do
+			for k, v in pairs(ext.Prototype) do
 				if not rawget(self, "__prototype")[k] then
-					rawget(self, "__prototype[k]") = v;
+					rawset(self, "__prototype[k]", v);
 				end
 			end
 		end
@@ -285,11 +285,11 @@ end
 
 --- Gets entries in the object and puts them in a list
 -- @param self An Object instance
-function Object.entries(self: any): {[number]: {any, any}}
+function Object.entries(self: any): {[number]: any}
 	local entries = {};
-	
+
 	for k, v in pairs(rawget(self, "__properties")) do
-		entries.insert({
+		table.insert(entries, {
 			k, v.__me
 		});
 	end
@@ -302,9 +302,9 @@ end
 -- @param self An Object instance
 function Object.keys(self: any): {[number]: any}
 	local keys = {};
-	
+
 	for k, v in pairs(rawget(self, "__properties")) do
-		keys.insert(k);
+		table.insert(keys, k);
 	end
 
 	return keys;
@@ -316,9 +316,9 @@ end
 -- @param self An Object instance
 function Object.values(self: any): {[number]: any}
 	local values = {};
-	
+
 	for k, v in pairs(rawget(self, "__properties")) do
-		values.insert(v.__me);
+		table.insert(values, v.__me);
 	end
 
 	return values;
@@ -357,7 +357,7 @@ end
 -- @param data Table of data to be used to create the ObjectProperty
 function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 	if not data then data = {} end;
-	
+
 	data.__type = ObjectProperty.Prototype.__type;
 	data.__typename = ObjectProperty.Prototype.__typename;
 	data.__extendees = ObjectProperty.Prototype.__extendees;
@@ -384,14 +384,14 @@ function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 		__get = nil,
 		__set = nil,
 		__delete = nil,
-		
+
 		__parent = parent,
 	};
 
 	for k, v in pairs(base) do
 		if not data[k] then data[k] = v; end
 	end
-	
+
 	if (data.__get or data.__set) and data.__value then
 		JSLikeError.throw("Object.Specify")
 	end
@@ -420,17 +420,17 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 	if rawget(ObjectProperty.Prototype, name) then
 		return rawget(ObjectProperty.Prototype, name);  
 
-	-- if __get exists then get the property through that
+		-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
 		return rawget(self, "__get")(rawget(self, "__parent"));
 
-	-- if you want to get the __me value
+		-- if you want to get the __me value
 	elseif name == "__me" then
 		if rawget(self, "__value") then return rawget(self, "__value");
 		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
 		else return rawget(self, "__value")[name]; end
 
-	-- finally if it exists inside of the value itself
+		-- finally if it exists inside of the value itself
 	else
 		return rawget(self, "__value")[name];
 	end
@@ -444,23 +444,23 @@ end
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
 function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
-	
+
 	-- if a __set value exists set through that
 	if rawget(self, "__set") then
 		rawget(self, "__set")(rawget(self, "__parent"), value); -- tbl, property name, new value
 		return true
 
-	-- if a __set doesn't exist then set through the value
+		-- if a __set doesn't exist then set through the value
 	elseif rawget(self, "__value") then
 		rawget(self, "__value")[name] = value;
 		return true
-		
-	-- if it doesn't have a __set or a __value then throw error if on strict
+
+		-- if it doesn't have a __set or a __value then throw error if on strict
 	else
 		if rawget(self, "__strict") then
 			JSLikeError.throw("Object.NoSet");
 		end
-		
+
 		return false;
 	end
 
