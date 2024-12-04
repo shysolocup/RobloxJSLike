@@ -189,13 +189,28 @@ function Object.Prototype.__newindex(self: any, name: string, value: any): boole
 
 	local props = rawget(self, "__properties");
 	local prop = props[name];
-
-	if prop and not rawget(prop, "__writable") then
-		if rawget(prop, "__strict") then
-			JSLikeError.throw("Object.ReadOnly", name)
+	
+	-- if it has a get but no set then crash if on strict mode and just warn if not
+	if prop and rawget(prop, "__get") then
+		if not rawget(prop, "__set") then
+			if rawget(prop, "__strict") then
+				JSLikeError.throw("Object.NoSet", name);
+			else	
+				return JSLikeError.warn("Object.NoSet", name);
+			end
 		end
 	end
 
+	-- if it's not writable then crash if on strict and warn if not
+	if prop and not rawget(prop, "__writable") then
+		if rawget(prop, "__strict") then
+			JSLikeError.throw("Object.ReadOnly", name)
+		else
+			return JSLikeError.warn("Object.ReadOnly", name);
+		end
+	end
+
+	-- define the property :3
 	Object.defineProperty(self, name, {
 		value = value
 	});
@@ -268,7 +283,11 @@ end
 function Object.Prototype.__super(self, ...): nil
 	for i, ext in pairs(rawget(self, "__extendees")) do
 		if not ext.__extensible then
-			JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
+			if config.strict.Value then
+				JSLikeError.throw("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
+			else
+				JSLikeError.warn("Object.NonExt", rawget(self, "__typename"), ext.__typename, ext.__typename);
+			end
 		else
 			for k, v in pairs(ext.Prototype) do
 				if not rawget(self, "__prototype")[k] then
@@ -393,7 +412,7 @@ function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
 	end
 
 	if (data.__get or data.__set) and data.__value then
-		JSLikeError.throw("Object.Specify")
+		JSLikeError.throw("Object.Specify");
 	end
 
 	data = setmetatable(data, ObjectProperty.Prototype);
@@ -458,7 +477,9 @@ function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any
 		-- if it doesn't have a __set or a __value then throw error if on strict
 	else
 		if rawget(self, "__strict") then
-			JSLikeError.throw("Object.NoSet");
+			JSLikeError.throw("Object.NoSet", name);
+		else
+			JSLikeError.warn("Object.NoSet", name);
 		end
 
 		return false;
