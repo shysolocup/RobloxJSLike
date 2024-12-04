@@ -1,10 +1,13 @@
 --!strict
 
 
+
+
 local config = script.Parent.Config;
 local JSLikeError = require(config.Errors);
 
 local Object = require(script.Parent.Object);
+
 
 
 --- JSLike Array
@@ -21,6 +24,8 @@ Array.Prototype = {
 };
 
 
+
+--- A little table for base properties inside of the Array class
 local base = {
 	length = {
 		__get = function(self)
@@ -33,11 +38,19 @@ local base = {
 }
 
 
+
 type _ArrayMeta = typeof(setmetatable({}, Array.Prototype));
 
 
+
+--- A type alias describing the shape of an Array instance
 export type _Array = _ArrayMeta & {
-	__properties: any,
+	
+	join: (_Array, joiner: any) -> string,
+	toString: (_Array) -> string,
+	at: (_Array, index: number) -> any | Object._ObjectProperty,
+	
+	__properties: {[any]: Object._ObjectProperty},
 	__prototype: {[string]: any},
 
 	-- class data
@@ -89,6 +102,55 @@ function Array.new(data: {[string]: any}): _Array
 	end
 
 	return self :: _Array;
+end
+
+
+
+--- Joins array into a string of the array's items separated by a joiner
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param joiner The thing you want to separate the items by
+function Array.Prototype.join(self: _Array, joiner: any | nil): string
+	if not joiner then joiner = ","; end
+	if typeof(joiner) ~= "string" then joiner = tostring(joiner) end;
+	local joined = "";
+	local values = Object.values(self, base);
+	
+	local i = 0;
+	
+	for _, v in pairs(values) do
+		i += 1;
+		
+		joined = joined .. tostring(v)
+		
+		if i < #values then
+			joined = joined .. tostring(joiner);
+		end
+	end
+	
+	return joined;
+end
+
+
+
+--- Turns an Array into a joined string joined by commas (eg: a,b,c)
+-- @param self An Array instance, if you use metamethods you should just ignore this
+function Array.Prototype.toString(self: _Array): string
+	return self:join(",")
+end
+
+
+
+--- Returns an item from an Array at a given index using a for loop
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param index Place in the Array you want to find
+function Array.Prototype.at(self: _Array, index: number): any | nil
+	for i, v in ipairs(rawget(self, "__properties")) do
+		if i == index then
+			return v;
+		end
+	end
+	
+	return nil;
 end
 
 
