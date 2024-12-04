@@ -193,6 +193,15 @@ function Object.Prototype.__newindex(self: any, name: string, value: any): boole
 
 	local props = rawget(self, "__properties");
 	local prop = props[name];
+
+	-- if it's not writable then crash if on strict and warn if not
+	if prop and not rawget(prop, "__writable") then
+		if rawget(prop, "__strict") then
+			JSLikeError.throw("Object.ReadOnly", name)
+		else
+			return JSLikeError.warn("Object.ReadOnly", name);
+		end
+	end
 	
 	-- if it has a get but no set then crash if on strict mode and just warn if not
 	if prop and rawget(prop, "__get") then
@@ -202,15 +211,6 @@ function Object.Prototype.__newindex(self: any, name: string, value: any): boole
 			else	
 				return JSLikeError.warn("Object.NoSet", name);
 			end
-		end
-	end
-
-	-- if it's not writable then crash if on strict and warn if not
-	if prop and not rawget(prop, "__writable") then
-		if rawget(prop, "__strict") then
-			JSLikeError.throw("Object.ReadOnly", name)
-		else
-			return JSLikeError.warn("Object.ReadOnly", name);
 		end
 	end
 
@@ -439,6 +439,10 @@ end
 
 
 
+function Object.Prototype.__len(self) return #rawget(self, "__properties"); end
+
+
+
 
 --- Creates a new ObjectProperty
 -- @param self An Object instance acting as a parent/owner of the ObjectProperty
@@ -508,17 +512,22 @@ function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
 	if rawget(ObjectProperty.Prototype, name) then
 		return rawget(ObjectProperty.Prototype, name);  
 
-		-- if __get exists then get the property through that
+
+	-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
 		return rawget(self, "__get")(rawget(self, "__parent"));
 
-		-- if you want to get the __me value
+
+	-- if you want to get the __me value
 	elseif name == "__me" then
 		if rawget(self, "__value") then return rawget(self, "__value");
+			
 		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
+			
 		else return rawget(self, "__value")[name]; end
 
-		-- finally if it exists inside of the value itself
+
+	-- finally if it exists inside of the value itself
 	else
 		return rawget(self, "__value")[name];
 	end
