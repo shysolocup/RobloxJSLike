@@ -62,7 +62,7 @@ type _ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 
 --- A type alias describing the shape of an Object instance
 export type _Object = _ObjectMeta & {
-	__properties: any,
+	__properties: {[any]: _ObjectProperty},
 	__prototype: {[string]: any},
 
 	-- class data
@@ -91,7 +91,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__value: any | nil,
 
 	-- parent Object that the property is in
-	__parent: any | nil,
+	__parent: _Object | nil,
 
 	-- if strict is on then it'll crash instead of just doing nothing when you piss off the 3 below this
 	-- it's false by default and not technically from the js version of objects but I added it bc you can technically do it by adding "use strict" to a file
@@ -167,7 +167,7 @@ end
 --- Controls how data is gotten from Objects
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
-function Object.Prototype.__index(self: any, name: string): any | nil
+function Object.Prototype.__index(self: _Object, name: string): any | nil
 
 	-- if it exists in prototype then it has priority over properties
 	if rawget(self, "__prototype")[name] then
@@ -189,7 +189,7 @@ end
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
-function Object.Prototype.__newindex(self: any, name: string, value: any): boolean
+function Object.Prototype.__newindex(self: _Object, name: string, value: any): boolean
 
 	local props = rawget(self, "__properties");
 	local prop = props[name];
@@ -227,7 +227,7 @@ end
 --- Type checking method for an Object
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
-function Object.Prototype.__isA(self: any, t: string): boolean
+function Object.Prototype.__isA(self: _Object, t: string): boolean
 	return rawget(self, "__typename") == t;
 end
 
@@ -237,7 +237,7 @@ end
 -- @param self An Object instance you want to add the property to
 -- @param name Name of the property you want to add
 -- @param data Table of data to be used to create the property
-function Object.defineProperty(self: any, name: string, data: {[string]: any}): _ObjectProperty
+function Object.defineProperty(self: _Object, name: string, data: {[string]: any}): _ObjectProperty
 	local prop = ObjectProperty.new(self, data);
 	rawget(self, "__properties")[name] = prop;
 	return prop;
@@ -248,7 +248,7 @@ end
 --- Creates new properties inside an Object
 -- @param self An Object instance you want to add the properties to
 -- @param properties Table of properties to be used to create properties: { [name] = { [descriptor] = [any] } }
-function Object.defineProperties(self: any, properties: {[string]: any}): nil
+function Object.defineProperties(self: _Object, properties: {[string]: any}): nil
 	for name, data in pairs(properties) do
 		local prop = ObjectProperty.new(self, data);
 		rawget(self, "__properties")[name] = prop;
@@ -262,7 +262,7 @@ end
 --- Gets a shallow property descriptor from an Object
 -- @param self Object instance to get descriptors from
 -- @param name Name of the property you want to get
-function Object.getOwnPropertyDescriptor(self: any, name: string): {[string]: any}
+function Object.getOwnPropertyDescriptor(self: _Object, name: string): {[string]: any}
 	local clone = clonetbl(rawget(self, "__properties")[name]);
 	return clone;
 end
@@ -271,7 +271,7 @@ end
 
 --- Gets all shallow property descriptors from an Object
 -- @param self Object instance to get descriptors from
-function Object.getOwnPropertyDescriptors(self: any): {[string]: any}
+function Object.getOwnPropertyDescriptors(self: _Object): {[string]: any}
 	local desc = {};
 
 	for k in pairs(rawget(self, "__properties")) do
@@ -286,7 +286,7 @@ end
 --- Assigns variables from on Object or Table to an Object
 -- @param self Object instance to assign variables to
 -- @param ... Objects or Tables to assign variables from
-function Object.assign(self: any, ...): boolean
+function Object.assign(self: _Object, ...): boolean
 	for _, assignee in pairs({...}) do
 		if typeof(assignee) == "table" and assignee.__typename == "Object" then
 			assignee = rawget(assignee, "__properties");
@@ -314,7 +314,7 @@ end
 --- Assigns variables from on Object or Table to an Object without overwriting existing variables
 -- @param self Object instance to assign variables to
 -- @param ... Objects or Tables to assign variables from
-function Object.assignNoOverwrite(self: any, ...): boolean
+function Object.assignNoOverwrite(self: _Object, ...): boolean
 	for _, assignee in pairs({...}) do
 		if typeof(assignee) == "table" and assignee.__typename == "Object" then
 			assignee = rawget(assignee, "__properties");
@@ -344,7 +344,7 @@ end
 --- Applies extendees
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param ... Arguments you want to run the extendees with
-function Object.super(self: any, ...): nil
+function Object.super(self: _Object, ...): nil
 	for i, ext in pairs(rawget(self, "__extendees")) do
 		if not ext.Prototype.__extensible then
 			if config.strict.Value then
@@ -373,13 +373,16 @@ end
 
 --- Gets entries in the object and puts them in a list
 -- @param self An Object instance
-function Object.entries(self: any): {[number]: any}
+function Object.entries(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
+	if not blacklist then blacklist = {} end;
 	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
-		table.insert(entries, {
-			k, v.__me
-		});
+		if not blacklist[k] then
+			table.insert(entries, {
+				k, v.__me
+			});
+		end
 	end
 
 	return entries;
@@ -388,35 +391,41 @@ end
 
 --- Gets keys in the object and puts them into a list
 -- @param self An Object instance
-function Object.keys(self: any): {[number]: any}
-	local keys = {};
+function Object.keys(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
+	if not blacklist then blacklist = {} end;
+	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
-		table.insert(keys, k);
+		if not blacklist[k] then
+			table.insert(entries, k);
+		end
 	end
 
-	return keys;
+	return entries;
 end
 
 
 
 --- Gets values in the object and puts them into a list
 -- @param self An Object instance
-function Object.values(self: any): {[number]: any}
-	local values = {};
+function Object.values(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
+	if not blacklist then blacklist = {} end;
+	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
-		table.insert(values, v.__me);
+		if not blacklist[k] then
+			table.insert(entries, v.__me);
+		end
 	end
 
-	return values;
+	return entries;
 end
 
 
 
 --- Prevents new properties from being added to an object, and prevents existing properties from being removed or modified. Returns the object
 -- @param self An Object instance
-function Object.freeze(self: any): any
+function Object.freeze(self: _Object): any
 	table.freeze(rawget(self, "__properties"));
 	return self;
 end
@@ -425,7 +434,7 @@ end
 
 --- Checks if the object is frozen or not
 -- @param self An Object instance
-function Object.isFrozen(self: any): boolean
+function Object.isFrozen(self: _Object): boolean
 	return table.isfrozen(rawget(self, "__properties"))
 end
 
@@ -433,7 +442,7 @@ end
 
 --- Checks if the object is extensible or not
 -- @param self An Object instance
-function Object.isExtensible(self: any): boolean
+function Object.isExtensible(self: _Object): boolean
 	return rawget(self, "__extensible");
 end
 
@@ -447,7 +456,7 @@ function Object.Prototype.__len(self) return #rawget(self, "__properties"); end
 --- Creates a new ObjectProperty
 -- @param self An Object instance acting as a parent/owner of the ObjectProperty
 -- @param data Table of data to be used to create the ObjectProperty
-function ObjectProperty.new(parent: any, data: {[string]: any}): _ObjectProperty
+function ObjectProperty.new(parent: _Object, data: {[string]: any}): _ObjectProperty
 	if not data then data = {} end;
 
 	data.__type = ObjectProperty.Prototype.__type;
@@ -497,7 +506,7 @@ end
 --- Type checking method for an ObjectProperty
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
-function ObjectProperty.Prototype.__isA(self: any, t: string): boolean
+function ObjectProperty.Prototype.__isA(self: _ObjectProperty, t: string): boolean
 	return rawget(self, "__typename") == t;
 end
 
@@ -506,7 +515,7 @@ end
 --- Controls how data is read inside the property
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
-function ObjectProperty.Prototype.__index(self: any, name: string): any | nil
+function ObjectProperty.Prototype.__index(self: _ObjectProperty, name: string): any | nil
 
 	-- if the prototype has it then get property through that
 	if rawget(ObjectProperty.Prototype, name) then
@@ -540,7 +549,7 @@ end
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
-function ObjectProperty.Prototype.__newindex(self: any, name: string, value: any | nil): boolean
+function ObjectProperty.Prototype.__newindex(self: _ObjectProperty, name: string, value: any | nil): boolean
 
 	-- if a __set value exists set through that
 	if rawget(self, "__set") then
