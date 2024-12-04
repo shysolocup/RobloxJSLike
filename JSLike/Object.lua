@@ -609,5 +609,10 @@ function ObjectProperty.Prototype.__pairs(self) return pairs(self.__me); end
 function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__me); end
 
 
+if not config.debug.Value then
+	function ObjectProperty.Prototype.__tostring(self) return tostring(self.__me); end
+end
+
+
 
 return Object;
