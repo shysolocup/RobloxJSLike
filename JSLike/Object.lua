@@ -55,6 +55,10 @@ ObjectProperty.Prototype = {
 
 
 
+Object.ObjectProperty = ObjectProperty;
+
+
+
 type _ObjectMeta = typeof(setmetatable({}, Object.Prototype));
 type _ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 

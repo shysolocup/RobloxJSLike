@@ -106,6 +106,42 @@ end
 
 
 
+--- Adds a new item to the end of the Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param item Item you want to push. If you put an ObjectProperty it'll define it using that
+function Array.Prototype.push(self: _Array, item: any | nil): boolean
+	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
+		Object.defineProperty(self, self.length+1, item);
+	else
+		Object.defineProperty(self, self.length+1, {
+			__value = item,
+			__writable = true,
+			__configurable = true,
+			__enumerable = true
+		})
+	end
+end
+
+
+
+
+--- Adds a new item to the beginning of the Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param item Item you want to unshift. If you put an ObjectProperty it'll define it using that
+function Array.Prototype.unshift(self: _Array, item: any | nil): boolean
+	local prop = nil;
+
+	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
+		prop = item;
+	else
+		prop = ObjectProperty.new(self, item);
+	end
+
+	table.insert(rawget(self, "__properties"), 1, prop);
+end
+
+
+
 --- Joins array into a string of the array's items separated by a joiner
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param joiner The thing you want to separate the items by
