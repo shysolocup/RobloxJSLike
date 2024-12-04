@@ -16,7 +16,8 @@ local Array = {
 Array.Prototype = {
 	__type = Array,
 	__typename = Array.__name,
-	__extendees = { Object }
+	__extendees = { Object },
+	__extensible = true
 };
 
 
@@ -31,11 +32,48 @@ export type _Array = _ArrayMeta & {
 	__type: any,
 	__typename: string,
 	__extendees: {[number]: string} | nil,
+	__extensible: boolean,
 
 	-- magic methods
 	__index: (_Array, name: string) -> any | nil,
 	__newindex: (_Array, name: string, value: any) -> boolean,
+
+	-- typechecking method
+	__isA: (_Array, t: string) -> boolean,
+
+	-- extensions
+	__super: (_Array) -> nil
 }
+
+
+
+--- Creates a new Array
+-- @param data Table of data to be used to create the Array
+function Array.new(data: {[string]: any}): _Array
+	if not data then data = {} end;
+
+	local self = {
+		__properties = {},
+		__prototype = Array.Prototype,
+
+		__type = Array.Prototype.__type,
+		__typename = Array.Prototype.__typename,
+		__extendees = Array.Prototype.__extendees,
+		__extensible = Array.Prototype.__extensible,
+	};
+	
+	Object.super(self, data);
+
+	for k, v in pairs(rawget(self, "__properties")) do
+		if typeof(k) ~= "number" then
+			JSLikeError.throw("Array.NonIndex")
+		end
+	end
+
+	self = setmetatable(self, Array.Prototype);
+
+	return self :: _Array;
+end
 
 
 
