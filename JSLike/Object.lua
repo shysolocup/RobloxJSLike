@@ -243,6 +243,17 @@ end
 -- @param data Table of data to be used to create the property
 function Object.defineProperty(self : _Object, name : string, data : { [string]: any }) : _ObjectProperty
 	local prop = ObjectProperty.new(self, data);
+	local props = rawget(self, "__properties");
+	local guh = props[name];
+
+	if guh and rawget(guh, "__configurable") then
+		if rawget(guh, "__strict") then
+			JSLikeError.throw("Object.NonConfig");
+		else
+			JSLikeError.warn("Object.NonConfig");
+		end
+	end
+
 	rawget(self, "__properties")[name] = prop;
 	return prop;
 end
@@ -629,7 +640,7 @@ function ObjectProperty.Prototype.__pairs(self)
 	if rawget(self, "__enumerable") then 
 		return pairs(self.__realvalue);
 
-	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	elseif rawget(self, "__strict") then  JSLikeError.throw("NonEnum");
 	else JSLikeError.warn("NonEnum"); end
 end
 
@@ -638,7 +649,7 @@ function ObjectProperty.Prototype.__ipairs(self)
 	if rawget(self, "__enumerable") then 
 		return ipairs(self.__realvalue);
 
-	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	elseif rawget(self, "__strict") then  JSLikeError.throw("NonEnum");
 	else JSLikeError.warn("NonEnum"); end
 end
 
@@ -647,7 +658,7 @@ function ObjectProperty.Prototype.__iter(self)
 	if rawget(self, "__enumerable") then 
 		return next, self.__realvalue; 
 
-	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	elseif rawget(self, "__strict") then  JSLikeError.throw("NonEnum");
 	else JSLikeError.warn("NonEnum"); end
 end
 
