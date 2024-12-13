@@ -28,9 +28,30 @@ Array.Prototype = {
 
 --- A little table for base properties inside of the Array class
 local base = {
+
+	-- read-only property length returns the length of the items
 	length = {
 		__get = function(self)
 			return #self;
+		end,
+		__writable = false,
+		__configurable = false,
+		__enumerable = false
+	},
+
+
+	-- read-only property __arrayitems returns an indexed array version of __properties ignoring dict entries
+	__arrayitems = {
+		__get = function(self)
+			local arr = {};
+
+			for k, v in pairs(rawget(self, "__properties")) do
+				if typeof(k) == "number" then
+					arr[k] = v;
+				end
+			end
+
+			return arr;
 		end,
 		__writable = false,
 		__configurable = false,
@@ -149,14 +170,13 @@ function Array.Prototype.join(self : _Array, joiner : any? ) : string
 
 	if typeof(joiner) ~= "string" then joiner = tostring(joiner) end;
 	local joined = "";
-	local values = Object.values(self, base);
 	
 	local i = 0;
 	
-	for _, v in pairs(values) do
+	for i, v in ipairs(self.__arrayitems) do
 		i += 1;
 		
-		joined = joined .. tostring(v)
+		joined = joined .. tostring(v.__realvalue)
 		
 		if i < #values then
 			joined = joined .. tostring(joiner);
@@ -180,7 +200,7 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param index Place in the Array you want to find
 function Array.Prototype.at(self : _Array, index : number): any | Object._ObjectProperty
-	for i, v in ipairs(rawget(self, "__properties")) do
+	for i, v in ipairs(self.__arrayitems) do
 		if i == index then
 			return v;
 		end
@@ -195,13 +215,20 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to find the index of.
 function Array.Prototype.indexOf(self : _Array, item : string? ) : number
-	for i, v in ipairs(rawget(self, "__properties")) do
+	for i, v in ipairs(self.__arrayitems) do
 		if rawget(v, "__value") == item then
 			return i;
 		end
 	end
 	return -1;
 end
+
+
+
+function Array.Prototype.__len(self) return #self.__arrayitems; end
+function Array.Prototype.__pairs(self) return pairs(self.__arrayitems); end
+function Array.Prototype.__ipairs(self) return ipairs(self.__arrayitems); end
+function Array.Prototype.__iter(self) return next, self.__arrayitems; end
 
 
 
