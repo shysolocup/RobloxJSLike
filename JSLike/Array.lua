@@ -242,8 +242,8 @@ local function localecompare(a, b)
 --- Sorts an Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param compare Optional function if you want to change how it sorts
-function Array.Prototype.sort(self : _Array, compare: () -> ): _Array
-	return table.sort()
+function Array.Prototype.sort(self : _Array, compare: (a : any, b : any) -> ): _Array
+	return 
 end
 
 
