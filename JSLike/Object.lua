@@ -31,7 +31,8 @@ Object.Prototype = {
 	__type = Object,
 	__typename = Object.__name,
 	__extendees = {},
-	__extensible = true
+	__extensible = true,
+	__clonable
 };
 
 
@@ -46,7 +47,8 @@ ObjectProperty.Prototype = {
 	__type = ObjectProperty,
 	__typename = ObjectProperty.__name,
 	__extendees = {},
-	__extensible = true
+	__extensible = true,
+	__clonable = true
 };
 
 
@@ -70,6 +72,7 @@ export type _Object = _ObjectMeta & {
 	__typename : string,
 	__extendees : { [number] : string } | nil,
 	__extensible : boolean,
+	__clonable: boolean,
 
 	-- magic methods
 	__index : (_Object, name : string) -> any,
@@ -122,6 +125,7 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__typename : string,
 	__extendees : { [number] : string },
 	__extensible : boolean,
+	__clonable: boolean,
 
 	-- typechecking method
 	__isA : (_ObjectProperty, t : string) -> boolean,
@@ -458,6 +462,35 @@ end
 -- @param self An Object instance
 function Object.isExtensible(self : _Object) : boolean
 	return rawget(self, "__extensible");
+end
+
+
+--- Clones an object
+-- @param self An Object instance
+function Object.clone(self : _Object, ...) : any
+	if not rawget(self, "__clonable") then
+		if config.strict.Value then
+			JSLikeError.throw("NonClone");
+		else
+			JSLikeError.warn("NonClone");
+		end
+		return;
+	end
+	
+	for _, prop in pairs(rawget(self, "__properties")) do
+		if not rawget(prop, "__clonable") then
+			if config.strict.Value then
+				JSLikeError.throw("NonClone");
+			else
+				JSLikeError.warn("NonClone");
+			end
+		end
+		return;
+	end
+
+	local props = clonetbl(rawget(self, "__properties"));
+
+	return rawget(self, "__type").new(props, ...);
 end
 
 

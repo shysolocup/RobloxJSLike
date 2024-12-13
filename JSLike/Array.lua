@@ -225,6 +225,28 @@ end
 
 
 
+local function localecompare(a, b)
+	a = tostring(a.N)
+	b = tostring(b.N)
+	local patt = '^(.-)%s*(%d+)$'
+	local _,_, col1, num1 = a:find(patt)
+	local _,_, col2, num2 = b:find(patt)
+	if (col1 and col2) and col1 == col2 then
+	   return tonumber(num1) < tonumber(num2)
+	end
+	return a < b
+ end
+
+
+
+--- Sorts an Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param compare Optional function if you want to change how it sorts
+function Array.Prototype.sort(self : _Array, compare: () -> ): _Array
+	return table.sort()
+end
+
+
 function Array.Prototype.__len(self) return #self.__arrayitems; end
 function Array.Prototype.__pairs(self) return pairs(self.__arrayitems); end
 function Array.Prototype.__ipairs(self) return ipairs(self.__arrayitems); end
