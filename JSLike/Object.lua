@@ -2,7 +2,7 @@
 
 
 
-local metamethods = { "__index", "__newindex", "__add", "__sub", "__mul", "__div", "__unm", "__mod", "__pow", "__idiv", "__band", "__bor", "__bxor", "__bnot", "__shl", "__shr", "__eq", "__lt", "__le", "__gt", "__ge", "__len", "__call", "__tostring", "__metatable", "__pairs", "__ipairs" };
+local metamethods = { "__index", "__newindex", "__add", "__sub", "__mul", "__div", "__unm", "__mod", "__pow", "__idiv", "__band", "__bor", "__bxor", "__bnot", "__shl", "__shr", "__eq", "__lt", "__le", "__gt", "__ge", "__len", "__call", "__tostring", "__metatable", "__pairs", "__ipairs", "__iter" };
 local config = script.Parent.Config;
 local JSLikeError = require(config.Errors);
 
@@ -62,21 +62,21 @@ type _ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 
 --- A type alias describing the shape of an Object instance
 export type _Object = _ObjectMeta & {
-	__properties: {[any]: _ObjectProperty},
-	__prototype: {[string]: any},
+	__properties : { [any] : _ObjectProperty },
+	__prototype : { [string] : any },
 
 	-- class data
-	__type: any,
-	__typename: string,
-	__extendees: {[number]: string} | nil,
-	__extensible: boolean,
+	__type : any,
+	__typename : string,
+	__extendees : { [number] : string } | nil,
+	__extensible : boolean,
 
 	-- magic methods
-	__index: (_Object, name: string) -> any | nil,
-	__newindex: (_Object, name: string, value: any) -> boolean,
+	__index : (_Object, name : string) -> any,
+	__newindex : (_Object, name : string, value : any?) -> boolean,
 
 	-- typechecking method
-	__isA: (_Object, t: string) -> boolean,
+	__isA: (_Object, t : string) -> boolean,
 
 	-- extensions
 	__super: (_Object) -> nil
@@ -88,51 +88,54 @@ export type _Object = _ObjectMeta & {
 export type _ObjectProperty = _ObjectPropertyMeta & {
 
 	-- value of the property
-	__value: any | nil,
+	__value : any,
 
 	-- parent Object that the property is in
-	__parent: _Object | nil,
+	__parent : _Object,
 
 	-- if strict is on then it'll crash instead of just doing nothing when you piss off the 3 below this
 	-- it's false by default and not technically from the js version of objects but I added it bc you can technically do it by adding "use strict" to a file
-	__strict: boolean,
+	__strict : boolean,
 
 	-- writable is for read only objects where you can't set things inside of the value
 	-- enumerable is if it can be for looped
 	-- configurable is for read only objects where you can't set things inside of the descriptors
-	__writable: boolean,
-	__enumerable: boolean,
-	__configurable: boolean,
+	__writable : boolean,
+	__enumerable : boolean,
+	__configurable : boolean,
 
 	-- get is a function ran when a property that doesn't exist is gotten
 	-- in js it runs when you get a property at all even if it exists
 	-- the only reason it's different is bc lua is shit
-	__get: nil | (_ObjectProperty, name: string) -> any | nil,
-	__set: nil | (_ObjectProperty, name: string, value: any) -> any | nil,
-	__delete: nil | (_ObjectProperty, name: string) -> any | nil,
+	__get : (_ObjectProperty, name : string) -> any,
+	__set : (_ObjectProperty, name : string, value: any?) -> any,
+	__delete : (_ObjectProperty, name : string) -> any,
+
+	-- only available using rawget because __realvalue is changed in __index to be a combination of __get and __value
+	__realvalue : (_ObjectProperty) -> any,
 
 	-- magic methods
-	__index: (_ObjectProperty, name: string) -> any | nil,
-	__newindex: (_ObjectProperty, name: string, value: any) -> boolean,
+	__index : (_ObjectProperty, name : string) -> any,
+	__newindex : (_ObjectProperty, name : string, value: any?) -> boolean,
 
-	__prototype: {[string]: any},
+	__prototype : { [string] : any },
 
 	-- class data
-	__type: any,
-	__typename: string,
-	__extendees: {[number]: string} | nil,
-	__extensible: boolean,
+	__type : any,
+	__typename : string,
+	__extendees : { [number] : string },
+	__extensible : boolean,
 
 	-- typechecking method
-	__isA: (_ObjectProperty, t: string) -> boolean,
+	__isA : (_ObjectProperty, t : string) -> boolean,
 }
 
 
 
 --- Creates a new Object
 -- @param data Table of data to be used to create the Object
-function Object.new(data: {[string]: any}): _Object
-	if not data then data = {} end;
+function Object.new(data : { [string] : any }? ) : _Object
+	data = data or {};
 
 	local self = {
 		__properties = {},
@@ -167,7 +170,7 @@ end
 --- Controls how data is gotten from Objects
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
-function Object.Prototype.__index(self: _Object, name: string): any | nil
+function Object.Prototype.__index(self : _Object, name : string) : any
 
 	-- if it exists in prototype then it has priority over properties
 	if rawget(self, "__prototype")[name] then
@@ -189,10 +192,11 @@ end
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
-function Object.Prototype.__newindex(self: _Object, name: string, value: any): boolean
+function Object.Prototype.__newindex(self : _Object, name : string, value : any? ) : boolean
 
 	local props = rawget(self, "__properties");
 	local prop = props[name];
+
 
 	-- if it's not writable then crash if on strict and warn if not
 	if prop and not rawget(prop, "__writable") then
@@ -203,6 +207,7 @@ function Object.Prototype.__newindex(self: _Object, name: string, value: any): b
 		end
 	end
 	
+
 	-- if it has a get but no set then crash if on strict mode and just warn if not
 	if prop and rawget(prop, "__get") then
 		if not rawget(prop, "__set") then
@@ -214,10 +219,12 @@ function Object.Prototype.__newindex(self: _Object, name: string, value: any): b
 		end
 	end
 
+
 	-- define the property :3
 	Object.defineProperty(self, name, {
 		value = value
 	});
+
 
 	return true;
 end
@@ -227,7 +234,7 @@ end
 --- Type checking method for an Object
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
-function Object.Prototype.__isA(self: _Object, t: string): boolean
+function Object.Prototype.__isA(self : _Object, t : string) : boolean
 	return rawget(self, "__typename") == t;
 end
 
@@ -237,7 +244,7 @@ end
 -- @param self An Object instance you want to add the property to
 -- @param name Name of the property you want to add
 -- @param data Table of data to be used to create the property
-function Object.defineProperty(self: _Object, name: string, data: {[string]: any}): _ObjectProperty
+function Object.defineProperty(self : _Object, name : string, data : { [string]: any }) : _ObjectProperty
 	local prop = ObjectProperty.new(self, data);
 	rawget(self, "__properties")[name] = prop;
 	return prop;
@@ -248,7 +255,7 @@ end
 --- Creates new properties inside an Object
 -- @param self An Object instance you want to add the properties to
 -- @param properties Table of properties to be used to create properties: { [name] = { [descriptor] = [any] } }
-function Object.defineProperties(self: _Object, properties: {[string]: any}): nil
+function Object.defineProperties(self : _Object, properties : { [string] : { [string] : any } }) : nil
 	for name, data in pairs(properties) do
 		local prop = ObjectProperty.new(self, data);
 		rawget(self, "__properties")[name] = prop;
@@ -262,7 +269,7 @@ end
 --- Gets a shallow property descriptor from an Object
 -- @param self Object instance to get descriptors from
 -- @param name Name of the property you want to get
-function Object.getOwnPropertyDescriptor(self: _Object, name: string): {[string]: any}
+function Object.getOwnPropertyDescriptor(self : _Object, name : string) : { [string] : any }
 	local clone = clonetbl(rawget(self, "__properties")[name]);
 	return clone;
 end
@@ -271,7 +278,7 @@ end
 
 --- Gets all shallow property descriptors from an Object
 -- @param self Object instance to get descriptors from
-function Object.getOwnPropertyDescriptors(self: _Object): {[string]: any}
+function Object.getOwnPropertyDescriptors(self : _Object) : { [string] : { [string] : any } }
 	local desc = {};
 
 	for k in pairs(rawget(self, "__properties")) do
@@ -286,7 +293,7 @@ end
 --- Assigns variables from on Object or Table to an Object
 -- @param self Object instance to assign variables to
 -- @param ... Objects or Tables to assign variables from
-function Object.assign(self: _Object, ...): boolean
+function Object.assign(self : _Object, ...) : boolean
 	for _, assignee in pairs({...}) do
 		if typeof(assignee) == "table" and assignee.__typename == "Object" then
 			assignee = rawget(assignee, "__properties");
@@ -314,7 +321,7 @@ end
 --- Assigns variables from on Object or Table to an Object without overwriting existing variables
 -- @param self Object instance to assign variables to
 -- @param ... Objects or Tables to assign variables from
-function Object.assignNoOverwrite(self: _Object, ...): boolean
+function Object.assignNoOverwrite(self : _Object, ...) : boolean
 	for _, assignee in pairs({...}) do
 		if typeof(assignee) == "table" and assignee.__typename == "Object" then
 			assignee = rawget(assignee, "__properties");
@@ -344,7 +351,7 @@ end
 --- Applies extendees
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param ... Arguments you want to run the extendees with
-function Object.super(self: _Object, ...): nil
+function Object.super(self : _Object, ...) : _Object
 	for i, ext in pairs(rawget(self, "__extendees")) do
 		if not ext.Prototype.__extensible then
 			if config.strict.Value then
@@ -366,21 +373,21 @@ function Object.super(self: _Object, ...): nil
 		end
 	end
 
-	return;
+	return self;
 end
 
 
 
 --- Gets entries in the object and puts them in a list
 -- @param self An Object instance
-function Object.entries(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
-	if not blacklist then blacklist = {} end;
+function Object.entries(self : _Object, blacklist : { [string] : any }? ) : { [number] : any }
+	blacklist = blacklist or {};
 	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
 		if not blacklist[k] then
 			table.insert(entries, {
-				k, v.__me
+				k, rawget(v, "__truevalue")()
 			});
 		end
 	end
@@ -391,8 +398,8 @@ end
 
 --- Gets keys in the object and puts them into a list
 -- @param self An Object instance
-function Object.keys(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
-	if not blacklist then blacklist = {} end;
+function Object.keys(self : _Object, blacklist : { [string]: any }? ) : { [number] : any}
+	blaclist = blacklist or {};
 	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
@@ -408,13 +415,13 @@ end
 
 --- Gets values in the object and puts them into a list
 -- @param self An Object instance
-function Object.values(self: _Object, blacklist: {[string]: any} | nil): {[number]: any}
-	if not blacklist then blacklist = {} end;
+function Object.values(self : _Object, blacklist : { [string]: any }? ) : { [number]: any }
+	blacklist = blacklist or {};
 	local entries = {};
 
 	for k, v in pairs(rawget(self, "__properties")) do
 		if not blacklist[k] then
-			table.insert(entries, v.__me);
+			table.insert(entries, rawget(v, "__realvalue")());
 		end
 	end
 
@@ -425,7 +432,7 @@ end
 
 --- Prevents new properties from being added to an object, and prevents existing properties from being removed or modified. Returns the object
 -- @param self An Object instance
-function Object.freeze(self: _Object): any
+function Object.freeze(self : _Object): _Object
 	table.freeze(rawget(self, "__properties"));
 	return self;
 end
@@ -434,7 +441,7 @@ end
 
 --- Checks if the object is frozen or not
 -- @param self An Object instance
-function Object.isFrozen(self: _Object): boolean
+function Object.isFrozen(self : _Object) : boolean
 	return table.isfrozen(rawget(self, "__properties"))
 end
 
@@ -442,13 +449,14 @@ end
 
 --- Checks if the object is extensible or not
 -- @param self An Object instance
-function Object.isExtensible(self: _Object): boolean
+function Object.isExtensible(self : _Object) : boolean
 	return rawget(self, "__extensible");
 end
 
 
 
 function Object.Prototype.__len(self) return #rawget(self, "__properties"); end
+function Object.Prototype.__iter(self) return next, self.__properties; end
 
 
 
@@ -512,28 +520,36 @@ end
 
 
 
+
+function ObjectProperty.Prototype.__realvalue(self : _ObjectProperty) : any
+	local get = rawget(self, "__get");
+	local value = rawget(self, "__value");
+
+	if value then return value;
+	elseif get then return get(rawget(self, "__parent"));
+	else return value[name]; end
+end
+
+
+
 --- Controls how data is read inside the property
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 function ObjectProperty.Prototype.__index(self: _ObjectProperty, name: string): any | nil
 
+	-- readonly value combining __value and __get
+	if name == "__realvalue" then
+		return ObjectProperty.Prototype.__realvalue(self);
+
+
 	-- if the prototype has it then get property through that
-	if rawget(ObjectProperty.Prototype, name) then
+	elseif rawget(ObjectProperty.Prototype, name) then
 		return rawget(ObjectProperty.Prototype, name);  
 
 
 	-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
 		return rawget(self, "__get")(rawget(self, "__parent"));
-
-
-	-- if you want to get the __me value
-	elseif name == "__me" then
-		if rawget(self, "__value") then return rawget(self, "__value");
-			
-		elseif rawget(self, "__get") then return rawget(self, "__get")(rawget(self, "__parent"));
-			
-		else return rawget(self, "__value")[name]; end
 
 
 	-- finally if it exists inside of the value itself
@@ -581,45 +597,48 @@ end
 
 
 
-function ObjectProperty.Prototype.__add(self, a) return self.__me + a; end
-function ObjectProperty.Prototype.__sub(self, a) return self.__me - a; end
-function ObjectProperty.Prototype.__mul(self, a) return self.__me * a; end
-function ObjectProperty.Prototype.__div(self, a) return self.__me / a; end
-function ObjectProperty.Prototype.__unm(self, a) return -self.__me; end
-function ObjectProperty.Prototype.__mod(self, a) return self.__me % a; end
-function ObjectProperty.Prototype.__pow(self, a) return self.__me ^ a; end
-function ObjectProperty.Prototype.__idiv(self, a) return self.__me // a; end
+function ObjectProperty.Prototype.__add(self, a) return self.__realvalue + a; end
+function ObjectProperty.Prototype.__sub(self, a) return self.__realvalue - a; end
+function ObjectProperty.Prototype.__mul(self, a) return self.__realvalue * a; end
+function ObjectProperty.Prototype.__div(self, a) return self.__realvalue / a; end
+function ObjectProperty.Prototype.__unm(self, a) return -self.__realvalue; end
+function ObjectProperty.Prototype.__mod(self, a) return self.__realvalue % a; end
+function ObjectProperty.Prototype.__pow(self, a) return self.__realvalue ^ a; end
+function ObjectProperty.Prototype.__idiv(self, a) return self.__realvalue // a; end
 
 
 -- these don't work whether it's my fault or not idk
 
--- function ObjectProperty.Prototype.__band(self, a) return self.__me & a; end
--- function ObjectProperty.Prototype.__bor(self, a) return self.__me | a; end
--- function ObjectProperty.Prototype.__bxor(self, a) return self.__me ^ a; end
--- function ObjectProperty.Prototype.__bnot(self) return ~self.__me; end
--- function ObjectProperty.Prototype.__shl(self, a) return self.__me << a; end
--- function ObjectProperty.Prototype.__shr(self, a) return self.__me >> a; end
+-- function ObjectProperty.Prototype.__band(self, a) return self.__realvalue & a; end
+-- function ObjectProperty.Prototype.__bor(self, a) return self.__realvalue | a; end
+-- function ObjectProperty.Prototype.__bxor(self, a) return self.__realvalue ^ a; end
+-- function ObjectProperty.Prototype.__bnot(self) return ~self.__realvalue; end
+-- function ObjectProperty.Prototype.__shl(self, a) return self.__realvalue << a; end
+-- function ObjectProperty.Prototype.__shr(self, a) return self.__realvalue >> a; end
 
 
 
-function ObjectProperty.Prototype.__eq(self, a) return self.__me == a; end
-function ObjectProperty.Prototype.__lt(self, a) return self.__me < a; end
-function ObjectProperty.Prototype.__le(self, a) return self.__me <= a; end
-function ObjectProperty.Prototype.__gt(self, a) return self.__me > a; end
-function ObjectProperty.Prototype.__ge(self, a) return self.__me >= a; end
+function ObjectProperty.Prototype.__eq(self, a) return self.__realvalue == a; end
+function ObjectProperty.Prototype.__lt(self, a) return self.__realvalue < a; end
+function ObjectProperty.Prototype.__le(self, a) return self.__realvalue <= a; end
+function ObjectProperty.Prototype.__gt(self, a) return self.__realvalue > a; end
+function ObjectProperty.Prototype.__ge(self, a) return self.__realvalue >= a; end
 
 
-function ObjectProperty.Prototype.__len(self) return #self.__me; end
-function ObjectProperty.Prototype.__call(self, ...) return self.__me(...); end
+function ObjectProperty.Prototype.__len(self) return #self.__realvalue; end
+function ObjectProperty.Prototype.__call(self, ...) return self.__realvalue(...); end
 
 
-function ObjectProperty.Prototype.__metatable(self) return self.__me.__metatable; end
-function ObjectProperty.Prototype.__pairs(self) return pairs(self.__me); end
-function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__me); end
+function ObjectProperty.Prototype.__metatable(self) return self.__realvalue.__metatable; end
+function ObjectProperty.Prototype.__pairs(self) return pairs(self.__realvalue); end
+function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__realvalue); end
+
+
+function ObjectProperty.Prototype.__iter(self) return next, self.__realvalue; end
 
 
 if not config.debug.Value then
-	function ObjectProperty.Prototype.__tostring(self) return tostring(self.__me); end
+	function ObjectProperty.Prototype.__tostring(self) return tostring(self.__realvalue); end
 end
 
 
