@@ -624,11 +624,32 @@ function ObjectProperty.Prototype.__call(self, ...) return self.__realvalue(...)
 
 
 function ObjectProperty.Prototype.__metatable(self) return self.__realvalue.__metatable; end
-function ObjectProperty.Prototype.__pairs(self) return pairs(self.__realvalue); end
-function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__realvalue); end
+
+function ObjectProperty.Prototype.__pairs(self)
+	if rawget(self, "__enumerable") then 
+		return pairs(self.__realvalue);
+
+	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	else JSLikeError.warn("NonEnum"); end
+end
 
 
-function ObjectProperty.Prototype.__iter(self) return next, self.__realvalue; end
+function ObjectProperty.Prototype.__ipairs(self)
+	if rawget(self, "__enumerable") then 
+		return ipairs(self.__realvalue);
+
+	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	else JSLikeError.warn("NonEnum"); end
+end
+
+
+function ObjectProperty.Prototype.__iter(self) 
+	if rawget(self, "__enumerable") then 
+		return next, self.__realvalue; 
+
+	elseif self.__strict then  JSLikeError.throw("NonEnum");
+	else JSLikeError.warn("NonEnum"); end
+end
 
 
 if not config.debug.Value then
