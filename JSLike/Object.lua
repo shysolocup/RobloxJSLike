@@ -464,13 +464,10 @@ function Object.Prototype.__iter(self) return next, self.__properties; end
 --- Creates a new ObjectProperty
 -- @param self An Object instance acting as a parent/owner of the ObjectProperty
 -- @param data Table of data to be used to create the ObjectProperty
-function ObjectProperty.new(parent: _Object, data: {[string]: any}): _ObjectProperty
-	if not data then data = {} end;
+function ObjectProperty.new(parent : _Object, data : { [string]: any }? ) : _ObjectProperty
+	data = data or {};
 
-	data.__type = ObjectProperty.Prototype.__type;
-	data.__typename = ObjectProperty.Prototype.__typename;
-	data.__extendees = ObjectProperty.Prototype.__extendees;
-	data.__extensible = ObjectProperty.Prototype.__extensible;
+	for p in {"__type", "__typename", "__extendees", "__extensible"} do data[p] = ObjectProperty.Prototype[p]; end
 	data.__prototype = ObjectProperty.Prototype;
 
 	local datafix = {};
@@ -514,7 +511,7 @@ end
 --- Type checking method for an ObjectProperty
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param t Type string to be checked against
-function ObjectProperty.Prototype.__isA(self: _ObjectProperty, t: string): boolean
+function ObjectProperty.Prototype.__isA(self : _ObjectProperty, t : string) : boolean
 	return rawget(self, "__typename") == t;
 end
 
@@ -535,7 +532,7 @@ end
 --- Controls how data is read inside the property
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
-function ObjectProperty.Prototype.__index(self: _ObjectProperty, name: string): any | nil
+function ObjectProperty.Prototype.__index(self : _ObjectProperty, name : string) : any
 
 	-- readonly value combining __value and __get
 	if name == "__realvalue" then
@@ -565,7 +562,7 @@ end
 -- @param self An ObjectProperty instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
-function ObjectProperty.Prototype.__newindex(self: _ObjectProperty, name: string, value: any | nil): boolean
+function ObjectProperty.Prototype.__newindex(self : _ObjectProperty, name : string, value: any? ) : boolean
 
 	-- if a __set value exists set through that
 	if rawget(self, "__set") then
