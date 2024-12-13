@@ -173,7 +173,7 @@ function Object.Prototype.__index(self : _Object, name : string) : any
 	if rawget(self, "__prototype")[name] then
 		return rawget(self, "__prototype")[name];
 
-		-- if it exists in properties get from there
+	-- if it exists in properties get from there
 	elseif rawget(self, "__properties")[name] then
 		return rawget(self, "__properties")[name];
 
@@ -254,8 +254,7 @@ end
 -- @param properties Table of properties to be used to create properties: { [name] = { [descriptor] = [any] } }
 function Object.defineProperties(self : _Object, properties : { [string] : { [string] : any } }) : nil
 	for name, data in pairs(properties) do
-		local prop = ObjectProperty.new(self, data);
-		rawget(self, "__properties")[name] = prop;
+		Object.DefineProperty(self, name, data);
 	end
 
 	return
@@ -601,7 +600,7 @@ function ObjectProperty.Prototype.__pow(self, a) return self.__realvalue ^ a; en
 function ObjectProperty.Prototype.__idiv(self, a) return self.__realvalue // a; end
 
 
--- these don't work whether it's my fault or not idk
+-- these don't work whether it's my fault or not idk bc idk how they work
 
 -- function ObjectProperty.Prototype.__band(self, a) return self.__realvalue & a; end
 -- function ObjectProperty.Prototype.__bor(self, a) return self.__realvalue | a; end
@@ -624,6 +623,7 @@ function ObjectProperty.Prototype.__call(self, ...) return self.__realvalue(...)
 
 
 function ObjectProperty.Prototype.__metatable(self) return self.__realvalue.__metatable; end
+
 
 function ObjectProperty.Prototype.__pairs(self)
 	if rawget(self, "__enumerable") then 
