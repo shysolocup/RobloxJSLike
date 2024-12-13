@@ -77,9 +77,6 @@ export type _Object = _ObjectMeta & {
 
 	-- typechecking method
 	__isA: (_Object, t : string) -> boolean,
-
-	-- extensions
-	__super: (_Object) -> _Object
 }
 
 

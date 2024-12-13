@@ -16,6 +16,7 @@ local Array = {
 	__name = "Array"
 };
 
+
 Array.Prototype = {
 	__type = Array,
 	__typename = Array.__name,
@@ -46,11 +47,12 @@ type _ArrayMeta = typeof(setmetatable({}, Array.Prototype));
 --- A type alias describing the shape of an Array instance
 export type _Array = _ArrayMeta & {
 	
-	push : (_Array, item: any?) -> Object._ObjectProperty
-	unshift : (_Array, item: any?) -> Object._ObjectProperty
+	push : (_Array, item: any?) -> Object._ObjectProperty,
+	unshift : (_Array, item: any?) -> Object._ObjectProperty,
 	join : (_Array, joiner : any?) -> string,
 	toString : (_Array) -> string,
 	at : (_Array, index : number) -> any | Object._ObjectProperty,
+	indexOf: (_Array, item: string?) -> number,
 	
 	__properties : { [any] : Object._ObjectProperty },
 	__prototype : { [string] : any },
@@ -67,9 +69,6 @@ export type _Array = _ArrayMeta & {
 
 	-- typechecking method
 	__isA : (_Array, t : string) -> boolean,
-
-	-- extensions
-	__super : (_Array) -> _Array
 }
 
 
@@ -188,6 +187,20 @@ function Array.Prototype.at(self : _Array, index : number): any | Object._Object
 	end
 	
 	return nil;
+end
+
+
+
+--- Finds the index of a property
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param item Item you want to find the index of.
+function Array.Prototype.indexOf(self : _Array, item : string? ) : number
+	for i, v in ipairs(rawget(self, "__properties")) do
+		if rawget(v, "__value") == item then
+			return i;
+		end
+	end
+	return -1;
 end
 
 
