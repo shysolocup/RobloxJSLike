@@ -46,50 +46,49 @@ type _ArrayMeta = typeof(setmetatable({}, Array.Prototype));
 --- A type alias describing the shape of an Array instance
 export type _Array = _ArrayMeta & {
 	
-	join: (_Array, joiner: any) -> string,
-	toString: (_Array) -> string,
-	at: (_Array, index: number) -> any | Object._ObjectProperty,
+	push : (_Array, item: any?) -> Object._ObjectProperty
+	unshift : (_Array, item: any?) -> Object._ObjectProperty
+	join : (_Array, joiner : any?) -> string,
+	toString : (_Array) -> string,
+	at : (_Array, index : number) -> any | Object._ObjectProperty,
 	
-	__properties: {[any]: Object._ObjectProperty},
-	__prototype: {[string]: any},
+	__properties : { [any] : Object._ObjectProperty },
+	__prototype : { [string] : any },
 
 	-- class data
-	__type: any,
-	__typename: string,
-	__extendees: {[number]: string} | nil,
-	__extensible: boolean,
+	__type : any,
+	__typename : string,
+	__extendees : { [number] : string },
+	__extensible : boolean,
 
 	-- magic methods
-	__index: (_Array, name: string) -> any | nil,
-	__newindex: (_Array, name: string, value: any) -> boolean,
+	__index:  (_Array, name : string) -> any,
+	__newindex : (_Array, name : string, value : any) -> boolean,
 
 	-- typechecking method
-	__isA: (_Array, t: string) -> boolean,
+	__isA : (_Array, t : string) -> boolean,
 
 	-- extensions
-	__super: (_Array) -> nil
+	__super : (_Array) -> _Array
 }
 
 
 
 --- Creates a new Array
 -- @param data Table of data to be used to create the Array
-function Array.new(data: {[string]: any}): _Array
-	if not data then data = {} end;
+function Array.new(data : { [string]: any }? ) : _Array
+	data = data or {};
 
 	local self = {
 		__properties = {},
-		__prototype = Array.Prototype,
-
-		__type = Array.Prototype.__type,
-		__typename = Array.Prototype.__typename,
-		__extendees = Array.Prototype.__extendees,
-		__extensible = Array.Prototype.__extensible,
+		__prototype = Array.Prototype,,
 	};
+
+	for p in {"__type", "__typename", "__extendees", "__extensible"} do self[p] = Array.Prototype[p]; end
 	
 	Object.super(self, data);
 
-	for k, v in pairs(rawget(self, "__properties")) do
+	for k in pairs(rawget(self, "__properties")) do
 		if typeof(k) ~= "number" then
 			JSLikeError.throw("Array.NonIndex")
 		end
@@ -109,11 +108,11 @@ end
 --- Adds a new item to the end of the Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to push. If you put an ObjectProperty it'll define it using that
-function Array.Prototype.push(self: _Array, item: any | nil): boolean
+function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectProperty
 	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
-		Object.defineProperty(self, self.length+1, item);
+		return Object.defineProperty(self, self.length+1, item);
 	else
-		Object.defineProperty(self, self.length+1, {
+		return Object.defineProperty(self, self.length+1, {
 			__value = item,
 			__writable = true,
 			__configurable = true,
@@ -128,7 +127,7 @@ end
 --- Adds a new item to the beginning of the Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to unshift. If you put an ObjectProperty it'll define it using that
-function Array.Prototype.unshift(self: _Array, item: any | nil): boolean
+function Array.Prototype.unshift(self : _Array, item : any?) : Object._ObjectProperty
 	local prop = nil;
 
 	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
@@ -138,6 +137,7 @@ function Array.Prototype.unshift(self: _Array, item: any | nil): boolean
 	end
 
 	table.insert(rawget(self, "__properties"), 1, prop);
+	return prop;
 end
 
 
@@ -145,8 +145,9 @@ end
 --- Joins array into a string of the array's items separated by a joiner
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param joiner The thing you want to separate the items by
-function Array.Prototype.join(self: _Array, joiner: any | nil): string
-	if not joiner then joiner = ","; end
+function Array.Prototype.join(self : _Array, joiner : any? ) : string
+	joiner = joiner or ",";
+
 	if typeof(joiner) ~= "string" then joiner = tostring(joiner) end;
 	local joined = "";
 	local values = Object.values(self, base);
@@ -170,8 +171,8 @@ end
 
 --- Turns an Array into a joined string joined by commas (eg: a,b,c)
 -- @param self An Array instance, if you use metamethods you should just ignore this
-function Array.Prototype.toString(self: _Array): string
-	return self:join(",")
+function Array.Prototype.toString(self : _Array) : string
+	return self:join()
 end
 
 
@@ -179,7 +180,7 @@ end
 --- Returns an item from an Array at a given index using a for loop
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param index Place in the Array you want to find
-function Array.Prototype.at(self: _Array, index: number): any | nil
+function Array.Prototype.at(self : _Array, index : number): any | Object._ObjectProperty
 	for i, v in ipairs(rawget(self, "__properties")) do
 		if i == index then
 			return v;

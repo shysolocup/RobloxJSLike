@@ -79,7 +79,7 @@ export type _Object = _ObjectMeta & {
 	__isA: (_Object, t : string) -> boolean,
 
 	-- extensions
-	__super: (_Object) -> nil
+	__super: (_Object) -> _Object
 }
 
 
