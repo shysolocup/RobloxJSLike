@@ -33,7 +33,7 @@ local base = {
 	-- read-only property length returns the length of the items
 	length = {
 		__get = function(self)
-			return #self;
+			return rawget(self, "__len")(self);
 		end,
 		__writable = false,
 		__configurable = false,
@@ -117,12 +117,12 @@ function Array.new(data : { [string]: any }? ) : _Array
 			JSLikeError.throw("Array.NonIndex")
 		end
 	end
+
+	setmetatable(self, Array.Prototype);
 	
 	for k, v in pairs(base) do
 		Object.defineProperty(self, k, v);
 	end
-
-	self = setmetatable(self, Array.Prototype);
 
 	return self :: _Array;
 end
@@ -136,9 +136,9 @@ function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectPrope
 	Object.hasIdentity(self);
 	
 	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
-		return Object.defineProperty(self, #self.length+1, item);
+		return Object.defineProperty(self, #self+1, item);
 	else
-		return Object.defineProperty(self, self.length+1, {
+		return Object.defineProperty(self, #self+1, {
 			__value = item,
 			__writable = true,
 			__configurable = true,
@@ -235,6 +235,7 @@ function Array.Prototype.indexOf(self : _Array, item : string? ) : number
 			return i;
 		end
 	end
+	
 	return -1;
 end
 
@@ -249,6 +250,15 @@ end]]
 
 
 function Array.Prototype.__len(self) return #self.__arrayitems; end
+
+
+
+if not config.debug.Value then
+	function Array.Prototype.__tostring(self) 
+		local props = rawget(self, "__properties");
+		return typeof(props) == "table" and Object.stringify(props, {"[","]"}, false) or tostring(props); 
+	end
+end
 
 
 

@@ -130,7 +130,7 @@ function ObjectProperty.new(parent : Object._Object, data : { [string] : any }? 
 		if not data[k] then data[k] = v; end
 	end
 
-	if (data.__get or data.__set) and data.__value then
+	if (rawget(data, "__get") or rawget(data, "__set")) and rawget(data, "__value") then
 		JSLikeError.throw("Object.Specify");
 	end
 
@@ -151,7 +151,7 @@ end
 
 
 function ObjectProperty.Prototype.__realvalue(self : _ObjectProperty) : any
-	return rawget(self, "__value") or rawget(self, "__get")(self);
+	return rawget(self, "__value") or rawget(self, "__get")(rawget(self, "__parent"));
 end
 
 
@@ -173,7 +173,7 @@ function ObjectProperty.Prototype.__index(self : _ObjectProperty, name : string)
 
 		-- if __get exists then get the property through that
 	elseif rawget(self, "__get") then 
-		return rawget(self, "__get")(rawget(self, "__parent"));
+		return rawget(self, "__get")(rawget(self, "__parent"))[name];
 
 
 		-- finally if it exists inside of the value itself
@@ -261,9 +261,17 @@ function ObjectProperty.Prototype.__pairs(self) return pairs(self.__realvalue) e
 function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__realvalue) end
 
 
-
 if not config.debug.Value then
-	function ObjectProperty.Prototype.__tostring(self) return tostring(self.__realvalue); end
+	function ObjectProperty.Prototype.__tostring(self) 
+		local prop = self.__realvalue;
+		if (typeof(prop) == "table" and rawget(prop, "__typename") == "ObjectProperty") then
+			return tostring(prop);
+		elseif (typeof(prop) == "table") then
+			return Object.stringify(prop, {"{","}"});
+		end
+		
+		return tostring(prop);
+	end
 end
 
 

@@ -267,6 +267,85 @@ end
 
 
 
+--- Gets the length of a table
+---- @param tbl Table you want to get the length of
+function Object.len( tbl: { [any] : any } ) : number
+	local i = 0;
+	for _ in tbl do i += 1; end
+	return i;
+end
+
+
+
+--- Turns a table into a string but funky
+--- @param tbl Table to stringify
+--- @param wrapper Wrapping strings that go around the entire thing (eg: {"{","}"})
+--- @param depth How deep it is changes how it's indented
+--- @param depth How deep it is changes how it's indented
+function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }?, keyed : boolean?, depth : number? ) : string
+	local wrapper = wrapper or { "{", "}" };
+	local length = Object.len(tbl);
+	
+	if length == 0 then
+		return wrapper[1]..wrapper[2];
+	end
+	
+	local keyed = keyed or true;
+	local depth = depth or 0
+	local indent = string.rep("  ", depth)
+	local result = wrapper[1].."\n"
+	
+	if rawget(tbl, "__typename") then
+		result = rawget(tbl, "__typename").." "..result;
+	end
+
+	for key, value in tbl do
+		local keyStr = tostring(key)
+		local valueStr
+		
+		if string.match(keyStr, "__") then
+			length -= 1;
+			continue;
+		end
+		
+		if typeof(value) == "table" and rawget(value, "__typename") == "ObjectProperty" then
+			if not rawget(value, "__enumerable") then
+				length -= 1;
+				continue;
+			end
+			
+			repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
+			
+			valueStr = tostring(value)
+			
+			if typeof(value) == "string" then  
+				valueStr = "'" .. valueStr .. "'";
+			end
+		elseif typeof(value) == "table" then
+			valueStr = Object.stringify(value, wrapper, depth + 1)
+		else
+			valueStr = tostring(value)
+			
+			if typeof(value) == "string" then  
+				valueStr = "'" .. valueStr .. "'";
+			end
+		end
+		
+		result = result..indent
+		
+		if keyed then
+			result = result.."  ["..keyStr.."] = ";
+		end
+		
+		result = result..valueStr..",\n"
+	end
+
+	result = result .. indent .. wrapper[2]
+	return result
+end
+
+
+
 
 --- Type checking method for an Object
 -- @param self An Object instance, if you use metamethods you should just ignore this
@@ -569,6 +648,15 @@ end
 
 
 function Object.Prototype.__pairs(self) return self:__iter() end
+
+
+
+if not config.debug.Value then
+	function Object.Prototype.__tostring(self) 
+		local props = rawget(self, "__properties");
+		return typeof(props) == "table" and Object.stringify(props, {"{","}"}) or tostring(props); 
+	end
+end
 
 
 
