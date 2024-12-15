@@ -149,7 +149,7 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 			if rawget(prop, "__strict") then
 				JSLikeError.throw("Object.NoSet", name);
 			else	
-				return JSLikeError.warn("Object.NoSet", name);
+				JSLikeError.warn("Object.NoSet", name);
 			end
 			
 			return false;
