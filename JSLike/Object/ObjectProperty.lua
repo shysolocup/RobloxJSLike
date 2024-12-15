@@ -151,7 +151,7 @@ end
 
 
 function ObjectProperty.Prototype.__realvalue(self : _ObjectProperty) : any
-	return rawget(self, "__value") or rawget(self, "__get");
+	return rawget(self, "__value") or rawget(self, "__get")(self);
 end
 
 

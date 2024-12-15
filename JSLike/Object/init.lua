@@ -137,8 +137,9 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 		if rawget(prop, "__strict") then
 			JSLikeError.throw("Object.ReadOnly", name)
 		else
-			return JSLikeError.warn("Object.ReadOnly", name);
+			JSLikeError.warn("Object.ReadOnly", name);
 		end
+		return false;
 	end
 
 
@@ -150,6 +151,11 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 			else	
 				return JSLikeError.warn("Object.NoSet", name);
 			end
+			
+			return false;
+		else
+			rawget(prop, "__set")(self, value);
+			return true
 		end
 	end
 
