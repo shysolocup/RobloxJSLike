@@ -83,7 +83,12 @@ function Object.new(data : { [any] : any }? ) : _Object
 
 	for k, v in pairs(data) do
 		if typeof(v) == "table" and v.__typename == "ObjectProperty" then
-			rawget(self, "__properties")[k] = v;
+			Object.defineProperty(self, k, {
+				__value = v.__realvalue,
+				__writable = true,
+				__configurable = true,
+				__enumerable = true
+			});
 		else
 			Object.defineProperty(self, k, {
 				__value = v,
@@ -158,12 +163,22 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 			return true
 		end
 	end
-
-
-	-- define the property :3
-	Object.defineProperty(self, name, {
-		value = value
-	});
+	
+	if typeof(value) == "table" and value.__typename == "ObjectProperty" then
+		rawget(self, "__properties")[name] = ObjectProperty.new(self, {
+			__value = value.__realvalue,
+			__writable = true,
+			__enumerable = true,
+			__configurable = true
+		});
+	else
+		rawget(self, "__properties")[name] = ObjectProperty.new(self, {
+			__value = value,
+			__writable = true,
+			__enumerable = true,
+			__configurable = true
+		});
+	end
 
 
 	return true;
@@ -269,6 +284,8 @@ end
 -- @param data Table of data to be used to create the property
 function Object.defineProperty(self : _Object, name : string, data : { [string]: any }) : ObjectProperty._ObjectProperty
 	local prop = ObjectProperty.new(self, data);
+	prop.__parent = self;
+	
 	local props = rawget(self, "__properties");
 	local guh = props[name];
 
