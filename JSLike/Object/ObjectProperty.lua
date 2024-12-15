@@ -262,14 +262,18 @@ function ObjectProperty.Prototype.__ipairs(self) return ipairs(self.__realvalue)
 
 
 if not config.debug.Value then
-	function ObjectProperty.Prototype.__tostring(self) 
-		local prop = self.__realvalue;
-		if (typeof(prop) == "table" and rawget(prop, "__typename") == "ObjectProperty") then
-			return tostring(prop);
-		elseif (typeof(prop) == "table") then
-			return Object.stringify(prop, {"{","}"});
-		end
+	function ObjectProperty.Prototype.__tostring(self, depth : number?) 
+		local prop = self;
+		repeat prop = prop.__realvalue until typeof(prop) ~= "table" or rawget(prop, "__typename") ~= "ObjectProperty"
 		
+		if typeof(prop) == "table" then
+			if prop.__tostring then
+				return prop:__tostring(depth);
+			else
+				return Object.stringify(prop, {"{","}"}, true, depth)
+			end
+		end
+
 		return tostring(prop);
 	end
 end

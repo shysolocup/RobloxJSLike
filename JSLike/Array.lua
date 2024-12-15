@@ -254,9 +254,9 @@ function Array.Prototype.__len(self) return #self.__arrayitems; end
 
 
 if not config.debug.Value then
-	function Array.Prototype.__tostring(self) 
+	function Array.Prototype.__tostring(self, depth : number?) 
 		local props = rawget(self, "__properties");
-		return typeof(props) == "table" and Object.stringify(props, {"[","]"}, false) or tostring(props); 
+		return typeof(props) == "table" and Object.stringify(props, {"[","]"}, false, depth) or tostring(props); 
 	end
 end
 

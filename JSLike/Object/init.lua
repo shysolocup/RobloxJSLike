@@ -15,6 +15,14 @@ end
 
 
 
+function pad(o : string, t : string, l : number)
+	local x = o;
+	x = (t):rep(l-x:len())..x;
+	return x;
+end
+
+
+
 function strstarts(String,Start)
 	return string.sub(String,1,string.len(Start))==Start
 end
@@ -290,9 +298,15 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 		return wrapper[1]..wrapper[2];
 	end
 	
-	local keyed = keyed or true;
-	local depth = depth or 0
-	local indent = string.rep("  ", depth)
+	if typeof(keyed) ~= "boolean" then
+		keyed = true;
+	end
+	
+	local depth = depth or 1
+	
+	local indent = pad("", "\t", depth);
+	local lastindent = pad("", "\t", depth-1);
+	
 	local result = wrapper[1].."\n"
 	
 	if rawget(tbl, "__typename") then
@@ -303,44 +317,37 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 		local keyStr = tostring(key)
 		local valueStr
 		
-		if string.match(keyStr, "__") then
-			length -= 1;
+		if string.match(keyStr, "__") or (typeof(value) == "table" and rawget(value, "__typename") and not rawget(value, "__enumerable")) then
 			continue;
 		end
 		
-		if typeof(value) == "table" and rawget(value, "__typename") == "ObjectProperty" then
-			if not rawget(value, "__enumerable") then
-				length -= 1;
-				continue;
+		if typeof(value) == "table" and not value.__tostring then
+			valueStr = Object.stringify(value, wrapper, depth + 1)
+		else
+			if typeof(value) == "table" and value.__tostring then
+				valueStr = value:__tostring(depth + 1)
+			else
+				valueStr = tostring(value)
 			end
 			
 			repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 			
-			valueStr = tostring(value)
-			
-			if typeof(value) == "string" then  
-				valueStr = "'" .. valueStr .. "'";
-			end
-		elseif typeof(value) == "table" then
-			valueStr = Object.stringify(value, wrapper, depth + 1)
-		else
-			valueStr = tostring(value)
-			
 			if typeof(value) == "string" then  
 				valueStr = "'" .. valueStr .. "'";
 			end
 		end
 		
-		result = result..indent
+		result = result..indent;
 		
 		if keyed then
-			result = result.."  ["..keyStr.."] = ";
+			result = result.."["..keyStr.."] = ";
 		end
 		
 		result = result..valueStr..",\n"
 	end
 
-	result = result .. indent .. wrapper[2]
+	result = result .. lastindent .. wrapper[2];
+	
 	return result
 end
 
@@ -652,9 +659,9 @@ function Object.Prototype.__pairs(self) return self:__iter() end
 
 
 if not config.debug.Value then
-	function Object.Prototype.__tostring(self) 
+	function Object.Prototype.__tostring(self, depth : number?)
 		local props = rawget(self, "__properties");
-		return typeof(props) == "table" and Object.stringify(props, {"{","}"}) or tostring(props); 
+		return typeof(props) == "table" and Object.stringify(props, {"{","}"}, true, depth) or tostring(props); 
 	end
 end
 
