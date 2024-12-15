@@ -27,7 +27,7 @@ end
 
 
 function JSLikeError.warn(err, ...)
-	local err = "JSLikeError["..err.."]: "..JSLikeError.Errors[err];
+	local err = "JSLikeError["..err.."]: "..JSLikeError.Errors[err].."\n"..debug.traceback();
 
 	if #{...} > 0 then
 		warn(string.format(err, ...));
