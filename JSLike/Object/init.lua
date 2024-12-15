@@ -332,6 +332,10 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 			
 			repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 			
+			if typeof(value) == "table" and rawget(value, "__typename") then
+				valueStr = rawget(value, "__typename").." "..valueStr
+			end
+			
 			if typeof(value) == "string" then  
 				valueStr = "'" .. valueStr .. "'";
 			end
