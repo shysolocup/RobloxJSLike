@@ -7,6 +7,7 @@ local config = script.Parent.Config;
 local JSLikeError = require(config.Errors);
 
 local Object = require(script.Parent.Object);
+local ObjectProperty = Object.ObjectProperty;
 
 
 
@@ -67,7 +68,7 @@ type _ArrayMeta = typeof(setmetatable({}, Array.Prototype));
 
 --- A type alias describing the shape of an Array instance
 export type _Array = _ArrayMeta & {
-	
+
 	push : (_Array, item: any?) -> Object._ObjectProperty,
 	unshift : (_Array, item: any?) -> Object._ObjectProperty,
 	join : (_Array, joiner : any?) -> string,
@@ -75,6 +76,9 @@ export type _Array = _ArrayMeta & {
 	at : (_Array, index : number) -> any | Object._ObjectProperty,
 	indexOf: (_Array, item: string?) -> number,
 	
+	length : number,
+	__arrayitems : { [number] : Object._ObjectProperty },
+
 	__properties : { [any] : Object._ObjectProperty },
 	__prototype : { [string] : any },
 
@@ -97,15 +101,15 @@ export type _Array = _ArrayMeta & {
 --- Creates a new Array
 -- @param data Table of data to be used to create the Array
 function Array.new(data : { [string]: any }? ) : _Array
-	data = data or {};
+	local data = data or {};
 
 	local self = {
 		__properties = {},
-		__prototype = Array.Prototype,,
+		__prototype = Array.Prototype,
 	};
 
-	for p in {"__type", "__typename", "__extendees", "__extensible"} do self[p] = Array.Prototype[p]; end
-	
+	for _, p in {"__type", "__typename", "__extendees", "__extensible", "__clonable"} do self[p] = Array.Prototype[p]; end
+
 	Object.super(self, data);
 
 	for k in pairs(rawget(self, "__properties")) do
@@ -113,12 +117,12 @@ function Array.new(data : { [string]: any }? ) : _Array
 			JSLikeError.throw("Array.NonIndex")
 		end
 	end
-
-	self = setmetatable(self, Array.Prototype);
 	
 	for k, v in pairs(base) do
 		Object.defineProperty(self, k, v);
 	end
+
+	self = setmetatable(self, Array.Prototype);
 
 	return self :: _Array;
 end
@@ -129,8 +133,10 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to push. If you put an ObjectProperty it'll define it using that
 function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	
 	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
-		return Object.defineProperty(self, self.length+1, item);
+		return Object.defineProperty(self, #self.length+1, item);
 	else
 		return Object.defineProperty(self, self.length+1, {
 			__value = item,
@@ -148,6 +154,8 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to unshift. If you put an ObjectProperty it'll define it using that
 function Array.Prototype.unshift(self : _Array, item : any?) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	
 	local prop = nil;
 
 	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
@@ -166,23 +174,24 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param joiner The thing you want to separate the items by
 function Array.Prototype.join(self : _Array, joiner : any? ) : string
-	joiner = joiner or ",";
-
-	if typeof(joiner) ~= "string" then joiner = tostring(joiner) end;
+	Object.hasIdentity(self);
+	
+	local joiner = tostring(joiner) or ",";
 	local joined = "";
-	
+
 	local i = 0;
-	
-	for i, v in ipairs(self.__arrayitems) do
+	local values = self.__arrayitems;
+
+	for _, v in values do
 		i += 1;
-		
+
 		joined = joined .. tostring(v.__realvalue)
-		
+
 		if i < #values then
 			joined = joined .. tostring(joiner);
 		end
 	end
-	
+
 	return joined;
 end
 
@@ -191,6 +200,8 @@ end
 --- Turns an Array into a joined string joined by commas (eg: a,b,c)
 -- @param self An Array instance, if you use metamethods you should just ignore this
 function Array.Prototype.toString(self : _Array) : string
+	Object.hasIdentity(self);
+	
 	return self:join()
 end
 
@@ -200,12 +211,14 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param index Place in the Array you want to find
 function Array.Prototype.at(self : _Array, index : number): any | Object._ObjectProperty
-	for i, v in ipairs(self.__arrayitems) do
+	Object.hasIdentity(self);
+	
+	for i, v in self.__arrayitems do
 		if i == index then
 			return v;
 		end
 	end
-	
+
 	return nil;
 end
 
@@ -215,7 +228,9 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to find the index of.
 function Array.Prototype.indexOf(self : _Array, item : string? ) : number
-	for i, v in ipairs(self.__arrayitems) do
+	Object.hasIdentity(self);
+	
+	for i, v in self.__arrayitems do
 		if rawget(v, "__value") == item then
 			return i;
 		end
@@ -225,32 +240,15 @@ end
 
 
 
-local function localecompare(a, b)
-	a = tostring(a.N)
-	b = tostring(b.N)
-	local patt = '^(.-)%s*(%d+)$'
-	local _,_, col1, num1 = a:find(patt)
-	local _,_, col2, num2 = b:find(patt)
-	if (col1 and col2) and col1 == col2 then
-	   return tonumber(num1) < tonumber(num2)
-	end
-	return a < b
- end
-
-
-
 --- Sorts an Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param compare Optional function if you want to change how it sorts
-function Array.Prototype.sort(self : _Array, compare: (a : any, b : any) -> ): _Array
+--[[function Array.Prototype.sort(self : _Array, compare: (a : any, b : any) -> any): _Array
 	return 
-end
+end]]
 
 
 function Array.Prototype.__len(self) return #self.__arrayitems; end
-function Array.Prototype.__pairs(self) return pairs(self.__arrayitems); end
-function Array.Prototype.__ipairs(self) return ipairs(self.__arrayitems); end
-function Array.Prototype.__iter(self) return next, self.__arrayitems; end
 
 
 
