@@ -139,7 +139,6 @@ end
 -- @param name Name of the property being gotten
 -- @param value New value of the property that's being set
 function Object.Prototype.__newindex(self : _Object, name : string, value : any? ) : boolean
-
 	local props = rawget(self, "__properties");
 	local prop = props[name];
 
@@ -306,7 +305,10 @@ end
 ---- @param tbl Table you want to get the length of
 function Object.len( tbl: { [any] : any } ) : number
 	local i = 0;
-	for _ in tbl do i += 1; end
+	for _, v in tbl do 
+		if rawget(v, "__typename") == "ObjectProperty" and not rawget(v, "__enumerable") then continue end
+		i += 1; 
+	end
 	return i;
 end
 
