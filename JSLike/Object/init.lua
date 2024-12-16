@@ -118,19 +118,7 @@ end
 -- @param self An Object instance, if you use metamethods you should just ignore this
 -- @param name Name of the property being gotten
 function Object.Prototype.__index(self : _Object, name : string) : any
-
-	-- if it exists in prototype then it has priority over properties
-	if rawget(self, "__prototype")[name] then
-		return rawget(self, "__prototype")[name];
-
-		-- if it exists in properties get from there
-	elseif rawget(self, "__properties")[name] then
-		return rawget(self, "__properties")[name];
-
-	else
-		return nil;
-	end
-
+	return rawget(self, "__prototype")[name] or rawget(self, "__properties")[name]
 end
 
 
