@@ -134,10 +134,8 @@ end
 -- @param item Item you want to push. If you put an ObjectProperty it'll define it using that
 function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectProperty
 	Object.hasIdentity(self);
-	
-	return Object.writeProperty(self, #self+1, Object.defaults({
-		__value = item
-	}))
+	table.insert(self, item);
+	return self.at(#self-1);
 end
 
 
@@ -148,17 +146,31 @@ end
 -- @param item Item you want to unshift. If you put an ObjectProperty it'll define it using that
 function Array.Prototype.unshift(self : _Array, item : any?) : Object._ObjectProperty
 	Object.hasIdentity(self);
-	
-	local prop = nil;
+	table.insert(self, 1, item);
+	return self.at(1);
+end
 
-	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
-		prop = item;
-	else
-		prop = ObjectProperty.new(self, item);
-	end
 
-	table.insert(rawget(self, "__properties"), 1, prop);
-	return prop;
+
+--- Removes the last item in the Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+function Array.Prototype.pop(self : _Array) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	local length = #self-1;
+	local old = self.at(length);
+	table.remove(self, length);
+	return old
+end
+
+
+
+--- Removes the first item in the Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+function Array.Prototype.shift(self : _Array) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	local old = self.at(1);
+	table.remove(self, 1);
+	return old
 end
 
 
@@ -257,6 +269,12 @@ function Array.Prototype.map(self : _Array, callback: (v : any?, i : number) -> 
 	
 	for i, v in clone.__arrayitems do
 		if rawget(v, "__writable") then
+			Object.writeProperty({
+				__value = callback(v, i),
+				__get = nil,
+				__set = nil,
+				__delete = nil
+			})
 			clone[i] = Object.ObjectProperty.new(Object.default( callback(v, i) ));
 		end
 	end
