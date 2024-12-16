@@ -75,7 +75,7 @@ export type _Array = _ArrayMeta & {
 	toString : (_Array) -> string,
 	at : (_Array, index : number) -> any | Object._ObjectProperty,
 	indexOf: (_Array, item: string?) -> number,
-	
+
 	length : number,
 	__arrayitems : { [number] : Object._ObjectProperty },
 
@@ -119,7 +119,7 @@ function Array.new(data : { [string]: any }? ) : _Array
 	end
 
 	setmetatable(self, Array.Prototype);
-	
+
 	for k, v in pairs(base) do
 		Object.defineProperty(self, k, v);
 	end
@@ -180,7 +180,7 @@ end
 -- @param joiner The thing you want to separate the items by
 function Array.Prototype.join(self : _Array, joiner : any? ) : string
 	Object.hasIdentity(self);
-	
+
 	local joiner = tostring(joiner) or ",";
 	local joined = "";
 
@@ -206,7 +206,7 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 function Array.Prototype.toString(self : _Array) : string
 	Object.hasIdentity(self);
-	
+
 	return self:join()
 end
 
@@ -217,7 +217,7 @@ end
 -- @param index Place in the Array you want to find
 function Array.Prototype.at(self : _Array, index : number): any | Object._ObjectProperty
 	Object.hasIdentity(self);
-	
+
 	for i, v in self.__arrayitems do
 		if i == index then
 			return v;
@@ -234,13 +234,13 @@ end
 -- @param item Item you want to find the index of.
 function Array.Prototype.indexOf(self : _Array, item : string? ) : number
 	Object.hasIdentity(self);
-	
+
 	for i, v in self.__arrayitems do
 		if rawget(v, "__value") == item then
 			return i;
 		end
 	end
-	
+
 	return -1;
 end
 
@@ -252,7 +252,7 @@ end
 -- @param callback Callback function passing v (value) and i (index)
 function Array.Prototype.forEach(self : _Array, callback: (v : any?, i : number) -> any? )
 	Object.hasIdentity(self);
-	
+
 	for i, v in self.__arrayitems do
 		callback(v, i);
 	end
@@ -266,7 +266,7 @@ end
 function Array.Prototype.map(self : _Array, callback: (v : any?, i : number) -> any ): _Array
 	Object.hasIdentity(self);
 	local clone = Object.clone(self);
-	
+
 	for i, v in clone.__arrayitems do
 		if rawget(v, "__writable") then
 			Object.writeProperty(self, i, {
