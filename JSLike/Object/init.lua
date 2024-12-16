@@ -202,6 +202,8 @@ end
 
 
 --- Deletes a property
+-- @param self An Object instance
+-- @param name Name of the property you want to delete
 function Object.delete( self : _Object, name : any ) : ObjectProperty._ObjectProperty
 	local prop = self[name];
 	self[name] = nil;
