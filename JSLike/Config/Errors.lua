@@ -7,6 +7,7 @@ JSLikeError.Errors = {
 	["Object.ReadOnly"] = "Cannot set \"%s\" of read-only object",
 	["Object.NonConfig"] = "Cannot redefine property \"%s\" because property is non-configurable",
 	["Object.DisWrite"] = "Cannot set property \"%s\" of object because \"%s\" attribute cannot be changed by Object.writeProperty(), did you mean to use Object.defineProperty()?",
+	["Object.MisWrite"] = "Cannot set property \"%s\" because Object.writeProperty() is not allowed to create properties, did you mean to use Object.defineProperty()?",
 	["Object.NonExt"] = "Cannot extend %s from %s because %s is not extensible. (can't extend off of an object with __extensible set to false)",
 	["Object.NonClone"] = "Cannot clone non-clonable object or property.",
 	["Object.NonEnum"] = "Cannot iterate over non-enumerable object (you can't loop through an object with __enumerable set to false)",

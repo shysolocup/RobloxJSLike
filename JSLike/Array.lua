@@ -269,13 +269,9 @@ function Array.Prototype.map(self : _Array, callback: (v : any?, i : number) -> 
 	
 	for i, v in clone.__arrayitems do
 		if rawget(v, "__writable") then
-			Object.writeProperty({
-				__value = callback(v, i),
-				__get = nil,
-				__set = nil,
-				__delete = nil
-			})
-			clone[i] = Object.ObjectProperty.new(Object.default( callback(v, i) ));
+			Object.writeProperty(self, i, {
+				__value = callback(v, i)
+			});
 		end
 	end
 end

@@ -453,49 +453,58 @@ function Object.writeProperty(self : _Object, name : string, data : { [string]: 
 	local props = rawget(self, "__properties");
 	local guh = props[name];
 
-	if guh and not rawget(guh, "__writable") then
-		if rawget(guh, "__strict") then
-			JSLikeError.throw("Object.ReadOnly", name);
+	if guh then
+
+		if not rawget(guh, "__writable") then
+			if rawget(guh, "__strict") then
+				JSLikeError.throw("Object.ReadOnly", name);
+			else
+				JSLikeError.warn("Object.ReadOnly", name);
+			end
+			return nil;
+		end
+		
+		local blacklist = {
+			"__parent",
+			"__strict",
+			"__writable",
+			"__enumerable",
+			"__configurable",
+			"__extensible",
+			"__clonable"
+		};
+
+		for k, v in data do
+			if blacklist[k] then
+				if rawget(guh, "__strict") then
+					JSLikeError.throw("Object.DisWrite", name, k);
+				else
+					JSLikeError.warn("Object.DisWrite", name, k);
+				end
+				continue
+			else
+				if not strstarts(k, "__") then k = "__"..k; end
+				guh[k] = v;
+			end
+		end
+	else
+		if config.strict.Value then
+			JSLikeError.throw("Object.MisWrite", name);
 		else
-			JSLikeError.warn("Object.ReadOnly", name);
+			JSLikeError.warn("Object.MisWrite", name);
 		end
 		return nil;
 	end
-	
-	local blacklist = {
-		"__parent",
-		"__strict",
-		"__writable",
-		"__enumerable",
-		"__configurable",
-		"__extensible",
-		"__clonable"
-	};
 
-	for k, v in data do
-		if blacklist[k] then
-			data[k] = nil;
 
-			if rawget(guh, "__strict") then
-				JSLikeError.throw("Object.DisWrite", name, k);
-			else
-				JSLikeError.warn("Object.DisWrite", name, k);
-			end
-
-			return nil;
-		end
-	end
-	
-	local prop = ObjectProperty.new(self, data);
-
-	local value = rawget(prop, "__value");
+	local value = rawget(guh, "__value");
 	if typeof(value) == "table" and rawget(value, "__typename") then
 		repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 	end
-	rawset(prop, "__value", value);
+	rawset(guh, "__value", value);
 
-	rawget(self, "__properties")[name] = prop;
-	return prop;
+	rawget(self, "__properties")[name] = guh;
+	return guh;
 end
 
 
