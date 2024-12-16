@@ -47,7 +47,7 @@ local base = {
 			local arr = {};
 
 			for k, v in pairs(rawget(self, "__properties")) do
-				if typeof(k) == "number" then
+				if typeof(k) == "number" and rawget(v, "__enumerale") then
 					arr[k] = v;
 				end
 			end
@@ -135,16 +135,9 @@ end
 function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectProperty
 	Object.hasIdentity(self);
 	
-	if typeof(item) == "table" and item.__typename == "ObjectProperty" then
-		return Object.defineProperty(self, #self+1, item);
-	else
-		return Object.defineProperty(self, #self+1, {
-			__value = item,
-			__writable = true,
-			__configurable = true,
-			__enumerable = true
-		})
-	end
+	return Object.writeProperty(self, #self+1, Object.defaults({
+		__value = item
+	}))
 end
 
 
@@ -237,6 +230,36 @@ function Array.Prototype.indexOf(self : _Array, item : string? ) : number
 	end
 	
 	return -1;
+end
+
+
+
+
+--- Goes through every entry in the Array
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param callback Callback function passing v (value) and i (index)
+function Array.Prototype.forEach(self : _Array, callback: (v : any?, i : number) -> any? )
+	Object.hasIdentity(self);
+	
+	for i, v in self.__arrayitems do
+		callback(v, i);
+	end
+end
+
+
+
+--- Goes through every entry in the Array changing each value depending on what's returned
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param callback Callback function passing v (value) and i (index)
+function Array.Prototype.map(self : _Array, callback: (v : any?, i : number) -> any ): _Array
+	Object.hasIdentity(self);
+	local clone = Object.clone(self);
+	
+	for i, v in clone.__arrayitems do
+		if rawget(v, "__writable") then
+			clone[i] = Object.ObjectProperty.new(Object.default( callback(v, i) ));
+		end
+	end
 end
 
 

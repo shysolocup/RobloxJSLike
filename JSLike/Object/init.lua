@@ -76,6 +76,23 @@ export type _Object = _ObjectMeta & {
 }
 
 
+--- Default values for an Object
+-- @param overrides Overriding table with info you want to put in over the default
+function Object.defaults(overrides : { [string] : any })? : { [string] : any }
+	local overrides = overrides or {};
+	
+	for k, v in {
+		__writable = true,
+		__configurable = true,
+		__enumerable = true
+	} do
+		overrides[k] = overrides[k] or v;
+	end
+
+	return overrides;
+end
+
+
 
 --- Creates a new Object
 -- @param data Table of data to be used to create the Object
@@ -91,19 +108,13 @@ function Object.new(data : { [any] : any }? ) : _Object
 
 	for k, v in pairs(data) do
 		if typeof(v) == "table" and v.__typename == "ObjectProperty" then
-			Object.defineProperty(self, k, {
-				__value = v.__realvalue,
-				__writable = true,
-				__configurable = true,
-				__enumerable = true
-			});
+			Object.defineProperty(self, k, Object.defaults({
+				__value = v.__realvalue
+			}));
 		else
-			Object.defineProperty(self, k, {
+			Object.defineProperty(self, k, Object.defaults({
 				__value = v,
-				__writable = true,
-				__configurable = true,
-				__enumerable = true
-			});
+			}));
 		end
 	end
 
@@ -172,19 +183,25 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 	end
 	
 	if typeof(value) == "table" and value.__typename == "ObjectProperty" then
-		rawget(self, "__properties")[name] = ObjectProperty.new(self, {
-			__value = value.__realvalue,
-			__writable = true,
-			__enumerable = true,
-			__configurable = true
-		});
+		if prop then
+			Object.writeProperty(self, name, {
+				__value = value.__realvalue
+			});
+		else
+			Object.defineProperty(self, name, Object.defaults({
+				__value = value.__realvalue
+			}));
+		end
 	else
-		rawget(self, "__properties")[name] = ObjectProperty.new(self, {
-			__value = value,
-			__writable = true,
-			__enumerable = true,
-			__configurable = true
-		});
+		if prop then
+			Object.writeProperty(self, name, {
+				__value = value
+			});
+		else
+			Object.defineProperty(self, name, Object.defaults({
+				__value = value
+			}));
+		end
 	end
 
 
@@ -401,10 +418,7 @@ end
 -- @param self An Object instance you want to add the property to
 -- @param name Name of the property you want to add
 -- @param data Table of data to be used to create the property
-function Object.defineProperty(self : _Object, name : string, data : { [string]: any }) : ObjectProperty._ObjectProperty
-	local prop = ObjectProperty.new(self, data);
-	prop.__parent = self;
-	
+function Object.defineProperty(self : _Object, name : string, data : { [string]: any }) : ObjectProperty._ObjectProperty?
 	local props = rawget(self, "__properties");
 	local guh = props[name];
 
@@ -416,6 +430,69 @@ function Object.defineProperty(self : _Object, name : string, data : { [string]:
 		end
 		return nil;
 	end
+	
+	local prop = ObjectProperty.new(self, data);
+
+	local value = rawget(prop, "__value");
+	if typeof(value) == "table" and rawget(value, "__typename") then
+		repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
+	end
+	rawset(prop, "__value", value);
+
+	rawget(self, "__properties")[name] = prop;
+	return prop;
+end
+
+
+
+--- Writes to an already existing property without triggering non-configurable errors
+-- @param self An Object instance you want to add the property to
+-- @param name Name of the property you want to add
+-- @param data Table of data to be used to create the property
+function Object.writeProperty(self : _Object, name : string, data : { [string]: any }) : ObjectProperty._ObjectProperty?
+	local props = rawget(self, "__properties");
+	local guh = props[name];
+
+	if guh and not rawget(guh, "__writable") then
+		if rawget(guh, "__strict") then
+			JSLikeError.throw("Object.ReadOnly", name);
+		else
+			JSLikeError.warn("Object.ReadOnly", name);
+		end
+		return nil;
+	end
+	
+	local blacklist = {
+		"__parent",
+		"__strict",
+		"__writable",
+		"__enumerable",
+		"__configurable",
+		"__extensible",
+		"__clonable"
+	};
+
+	for k, v in data do
+		if blacklist[k] then
+			data[k] = nil;
+
+			if rawget(guh, "__strict") then
+				JSLikeError.throw("Object.DisWrite", name, k);
+			else
+				JSLikeError.warn("Object.DisWrite", name, k);
+			end
+
+			return nil;
+		end
+	end
+	
+	local prop = ObjectProperty.new(self, data);
+
+	local value = rawget(prop, "__value");
+	if typeof(value) == "table" and rawget(value, "__typename") then
+		repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
+	end
+	rawset(prop, "__value", value);
 
 	rawget(self, "__properties")[name] = prop;
 	return prop;
@@ -429,6 +506,19 @@ end
 function Object.defineProperties(self : _Object, properties : { [string] : { [string] : any } }) : nil
 	for name, data in pairs(properties) do
 		Object.defineProperty(self, name, data);
+	end
+
+	return
+end
+
+
+
+--- Writes to already existing properties without triggering non-configurable errors
+-- @param self An Object instance you want to add the properties to
+-- @param properties Table of properties to be used to set properties: { [name] = { [descriptor] = [any] } }
+function Object.writeProperties(self : _Object, properties : { [string] : { [string] : any } }) : nil
+	for name, data in pairs(properties) do
+		Object.writeProperty(self, name, data);
 	end
 
 	return
@@ -472,12 +562,9 @@ function Object.assign(self : _Object, ...) : boolean
 			if typeof(v) == "table" and v.__typename == "ObjectProperty" then
 				rawget(self, "__properties")[k] = v;
 			else
-				Object.defineProperty(self, k, {
-					__value = v,
-					__writable = true,
-					__configurable = true,
-					__enumerable = true
-				});
+				Object.defineProperty(self, k, Object.defaults({
+					__value = v
+				}));
 			end
 		end
 	end
@@ -501,12 +588,9 @@ function Object.assignNoOverwrite(self : _Object, ...) : boolean
 				if typeof(v) == "table" and v.__typename == "ObjectProperty" then
 					rawget(self, "__properties")[k] = v;
 				else
-					Object.defineProperty(self, k, {
-						__value = v,
-						__writable = true,
-						__configurable = true,
-						__enumerable = true
-					});
+					Object.defineProperty(self, k, Object.defaults({
+						__value = v
+					}));
 				end
 			end
 		end
