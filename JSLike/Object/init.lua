@@ -288,12 +288,13 @@ end
 --- Turns a table into a string but funky
 --- @param tbl Table to stringify
 --- @param wrapper Wrapping strings that go around the entire thing (eg: {"{","}"})
---- @param depth How deep it is changes how it's indented
+--- @param keyed Decides if it has keys and values or just values
 --- @param depth How deep it is changes how it's indented
 function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }?, keyed : boolean?, depth : number? ) : string
 	local wrapper = wrapper or { "{", "}" };
 	local length = Object.len(tbl);
-	
+
+	-- if the length of the table is 0 then it just returns {} or whatever the wrapper is
 	if length == 0 then
 		return wrapper[1]..wrapper[2];
 	end
@@ -301,57 +302,73 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 	if typeof(keyed) ~= "boolean" then
 		keyed = true;
 	end
-	
+
 	local depth = depth or 1
-	
+
+	-- the entries use the normal indent
+	-- the wrappers use last indent so they don't show up on the same line as entries
 	local indent = pad("", "\t", depth);
 	local lastindent = pad("", "\t", depth-1);
-	
+
 	local result = wrapper[1].."\n"
-	
-	if rawget(tbl, "__typename") then
-		result = rawget(tbl, "__typename").." "..result;
-	end
 
 	for key, value in tbl do
 		local keyStr = tostring(key)
 		local valueStr
 		
-		if string.match(keyStr, "__") or (typeof(value) == "table" and rawget(value, "__typename") and not rawget(value, "__enumerable")) then
+		-- if the value has "__" it's marked as a debug-only property and isn't displayed
+		-- if the value is an ObjectProperty and is not enumerable then it also isn't displayed
+		if string.match(keyStr, "__") or value == tbl or (typeof(value) == "table" and rawget(value, "__typename") and not rawget(value, "__enumerable")) then
 			continue;
 		end
+
+		-- if a cycle is detected
+		if value == tbl then
+			valueStr = "*** cycle table reference detected ***";
 		
-		if typeof(value) == "table" and not value.__tostring then
-			valueStr = Object.stringify(value, wrapper, depth + 1)
+		-- if it's a table and it has no __tostring method then run another Object.stringify on it one depth down
+		elseif typeof(value) == "table" and not value.__tostring then
+			valueStr = Object.stringify(value, {"{","}"}, depth + 1)
+		
 		else
+			-- if it has a __tostring then use that next depth down
 			if typeof(value) == "table" and value.__tostring then
 				valueStr = value:__tostring(depth + 1)
+
+			-- if it doesn't have an __tostring or isn't a table just tostring it
 			else
 				valueStr = tostring(value)
 			end
 			
+			-- if it has a typename then keep getting realvalue until you stop getting ObjectProperty instances so that you can typecheck the actual value
 			if typeof(value) == "table" and rawget(value, "__typename") then
 				repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 			end
 			
+			-- if the result of the last statement is a type then add the typename to it
 			if typeof(value) == "table" and rawget(value, "__typename") then
 				valueStr = rawget(value, "__typename").." "..valueStr
 			end
 			
+			-- if it's a string then it adds the '' around it
 			if typeof(value) == "string" then  
 				valueStr = "'" .. valueStr .. "'";
 			end
 		end
 		
+		-- add the indent
 		result = result..indent;
 		
+		-- if it's keyed then add the key
 		if keyed then
 			result = result.."["..keyStr.."] = ";
 		end
 		
+		-- bring it all together and add an comma at the end as well as a new line
 		result = result..valueStr..",\n"
 	end
 
+	-- once done gh add another indent and wrap it
 	result = result .. lastindent .. wrapper[2];
 	
 	return result
