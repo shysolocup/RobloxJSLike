@@ -144,6 +144,17 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 	end
 
 
+	-- if it's deleting then run the __delete method
+	if value == nil and (prop and rawget(prop, "__delete")) then
+		rawget(prop, "__delete")(self);
+		return true
+	elseif value == nil and prop and not rawget(prop, "__delete") then
+		rawget(self, "__properties")[name] = nil;
+		prop.__parent = nil;
+		return true;
+	end
+
+
 	-- if it has a get but no set then crash if on strict mode and just warn if not
 	if prop and rawget(prop, "__get") then
 		if not rawget(prop, "__set") then
@@ -186,6 +197,15 @@ end
 -- @param property An ObjectProperty that you want to get the pairs of
 function Object.pairs( property : ObjectProperty._ObjectProperty ) : any
 	return rawget(property, "__enumerable") and pairs(property.__realvalue);
+end
+
+
+
+--- Deletes a property
+function Object.delete( self : _Object, name : any ) : ObjectProperty._ObjectProperty
+	local prop = self[name];
+	self[name] = nil;
+	return prop;
 end
 
 

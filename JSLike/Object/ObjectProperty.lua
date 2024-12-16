@@ -46,14 +46,13 @@ type _ObjectPropertyMeta = typeof(setmetatable({}, ObjectProperty.Prototype));
 --- A type alias describing the shape of an ObjectProperty instance
 export type _ObjectProperty = _ObjectPropertyMeta & {
 
-	-- value of the property
 	__value : any?,
 
 	-- parent Object that the property is in
 	__parent : Object._Object,
 
-	-- if strict is on then it'll crash instead of just doing nothing when you piss off the 3 below this
-	-- it's false by default and not technically from the js version of objects but I added it bc you can technically do it by adding "use strict" to a file
+	-- if when an error occurs it'll crash instead of warning
+	-- false by default but you can turn it on for individual properties if you want
 	__strict : boolean,
 
 	-- writable is for read only objects where you can't set things inside of the value
@@ -63,9 +62,9 @@ export type _ObjectProperty = _ObjectPropertyMeta & {
 	__enumerable : boolean,
 	__configurable : boolean,
 
-	-- get is a function ran when a property that doesn't exist is gotten
-	-- in js it runs when you get a property at all even if it exists
-	-- the only reason it's different is bc lua is shit
+	-- get is a function ran when a property that doesn't exist is gotten and it passes the parent
+	-- set is a function ran when a property is changed and it passes the parent and the new value
+	-- 
 	__get : (_ObjectProperty, name : string) -> any?,
 	__set : (_ObjectProperty, name : string, value: any?) -> any?,
 	__delete : (_ObjectProperty, name : string) -> any?,
