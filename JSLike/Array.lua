@@ -47,7 +47,7 @@ local base = {
 			local arr = {};
 
 			for k, v in pairs(rawget(self, "__properties")) do
-				if typeof(k) == "number" and rawget(v, "__enumerale") then
+				if typeof(k) == "number" and rawget(v, "__enumerable") then
 					arr[k] = v;
 				end
 			end
@@ -129,13 +129,42 @@ end
 
 
 
+--- Adds a new itemto the Array at the given index pushing everything else back
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param item Item you want to insert.
+-- @param index Index you want to insert at
+function Array.Prototype.insert(self : _Array, item : any?, index : number? ) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	local index = index or #self+1;
+	
+	local t = {};
+	
+	for i=1, (#self.__arrayitems)+1 do
+		if i == index then
+			t[i] = ObjectProperty.new(self, Object.defaults({
+				value = item;
+			}))
+		elseif i > index then
+			t[i] = self:at(i-1);
+		elseif i < index then
+			t[i] = self:at(i);
+		end
+	end
+	
+	for i, v in t do
+		rawget(self, "__properties")[i] = v;
+	end
+	
+	return self:at(index);
+end
+
+
+
 --- Adds a new item to the end of the Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
--- @param item Item you want to push. If you put an ObjectProperty it'll define it using that
+-- @param item Item you want to push.
 function Array.Prototype.push(self : _Array, item : any? ) : Object._ObjectProperty
-	Object.hasIdentity(self);
-	table.insert(self, item);
-	return self.at(#self-1);
+	return self:insert(item);
 end
 
 
@@ -143,11 +172,9 @@ end
 
 --- Adds a new item to the beginning of the Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
--- @param item Item you want to unshift. If you put an ObjectProperty it'll define it using that
+-- @param item Item you want to unshift.
 function Array.Prototype.unshift(self : _Array, item : any?) : Object._ObjectProperty
-	Object.hasIdentity(self);
-	table.insert(self, 1, item);
-	return self.at(1);
+	return self:insert(item, 1);
 end
 
 
@@ -157,7 +184,7 @@ end
 function Array.Prototype.pop(self : _Array) : Object._ObjectProperty
 	Object.hasIdentity(self);
 	local length = #self-1;
-	local old = self.at(length);
+	local old = self:at(length);
 	table.remove(self, length);
 	return old
 end
@@ -168,7 +195,7 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 function Array.Prototype.shift(self : _Array) : Object._ObjectProperty
 	Object.hasIdentity(self);
-	local old = self.at(1);
+	local old = self:at(1);
 	table.remove(self, 1);
 	return old
 end
