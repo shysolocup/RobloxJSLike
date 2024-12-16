@@ -78,14 +78,14 @@ export type _Object = _ObjectMeta & {
 
 --- Default values for an Object
 -- @param overrides Overriding table with info you want to put in over the default
-function Object.defaults(overrides : { [string] : any })? : { [string] : any }
+function Object.defaults(overrides : { [string] : any }?) : { [string] : any }
 	local overrides = overrides or {};
-	
-	for k, v in {
+
+	for k, v in pairs({
 		__writable = true,
 		__configurable = true,
 		__enumerable = true
-	} do
+	}) do
 		overrides[k] = overrides[k] or v;
 	end
 
@@ -103,7 +103,7 @@ function Object.new(data : { [any] : any }? ) : _Object
 		__properties = {},
 		__prototype = Object.Prototype,
 	};
-	
+
 	for _, p in {"__type", "__typename", "__extendees", "__extensible", "__clonable"} do self[p] = Object.Prototype[p]; end
 
 	for k, v in pairs(data) do
@@ -174,14 +174,14 @@ function Object.Prototype.__newindex(self : _Object, name : string, value : any?
 			else	
 				JSLikeError.warn("Object.NoSet", name);
 			end
-			
+
 			return false;
 		else
 			rawget(prop, "__set")(self, value);
 			return true
 		end
 	end
-	
+
 	if typeof(value) == "table" and value.__typename == "ObjectProperty" then
 		if prop then
 			Object.writeProperty(self, name, {
@@ -263,7 +263,7 @@ function Object.enumerate( self : _Object ): { [number] : any }
 		end
 		t[i] = v;
 	end
-	
+
 	return Object.new(t);
 end
 
@@ -285,15 +285,15 @@ end
 --- @param strict If it should throw an error or just warn
 function Object.hasIdentity(self : _Object, strict : boolean?) : boolean
 	local strict = strict or config.strict.Value;
-	
+
 	if typeof(self) ~= "table" or not rawget(self, "__typename") then
-		
+
 		if strict then
 			JSLikeError.throw("Method.NoSelf");
 		else
 			JSLikeError.warn("Method.NoSelf");
 		end
-		
+
 		return false;
 	end
 
@@ -325,7 +325,7 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 	if length == 0 then
 		return wrapper[1]..wrapper[2];
 	end
-	
+
 	if typeof(keyed) ~= "boolean" then
 		keyed = true;
 	end
@@ -342,7 +342,7 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 	for key, value in tbl do
 		local keyStr = tostring(key)
 		local valueStr
-		
+
 		-- if the value has "__" it's marked as a debug-only property and isn't displayed
 		-- if the value is an ObjectProperty and is not enumerable then it also isn't displayed
 		if string.match(keyStr, "__") or value == tbl or (typeof(value) == "table" and rawget(value, "__typename") and not rawget(value, "__enumerable")) then
@@ -352,52 +352,52 @@ function Object.stringify(tbl : { [any] : any }, wrapper : { [number] : string }
 		-- if a cycle is detected
 		if value == tbl then
 			valueStr = "*** cycle table reference detected ***";
-		
-		-- if it's a table and it has no __tostring method then run another Object.stringify on it one depth down
+
+			-- if it's a table and it has no __tostring method then run another Object.stringify on it one depth down
 		elseif typeof(value) == "table" and not value.__tostring then
 			valueStr = Object.stringify(value, {"{","}"}, depth + 1)
-		
+
 		else
 			-- if it has a __tostring then use that next depth down
 			if typeof(value) == "table" and value.__tostring then
 				valueStr = value:__tostring(depth + 1)
 
-			-- if it doesn't have an __tostring or isn't a table just tostring it
+				-- if it doesn't have an __tostring or isn't a table just tostring it
 			else
 				valueStr = tostring(value)
 			end
-			
+
 			-- if it has a typename then keep getting realvalue until you stop getting ObjectProperty instances so that you can typecheck the actual value
-			if typeof(value) == "table" and rawget(value, "__typename") then
+			if typeof(value) == "table" and rawget(value, "__typename") == "ObjectProperty" then
 				repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 			end
-			
+
 			-- if the result of the last statement is a type then add the typename to it
 			if typeof(value) == "table" and rawget(value, "__typename") then
 				valueStr = rawget(value, "__typename").." "..valueStr
 			end
-			
+
 			-- if it's a string then it adds the '' around it
 			if typeof(value) == "string" then  
 				valueStr = "'" .. valueStr .. "'";
 			end
 		end
-		
+
 		-- add the indent
 		result = result..indent;
-		
+
 		-- if it's keyed then add the key
 		if keyed then
 			result = result.."["..keyStr.."] = ";
 		end
-		
+
 		-- bring it all together and add an comma at the end as well as a new line
 		result = result..valueStr..",\n"
 	end
 
 	-- once done gh add another indent and wrap it
 	result = result .. lastindent .. wrapper[2];
-	
+
 	return result
 end
 
@@ -430,11 +430,11 @@ function Object.defineProperty(self : _Object, name : string, data : { [string]:
 		end
 		return nil;
 	end
-	
+
 	local prop = ObjectProperty.new(self, data);
 
 	local value = rawget(prop, "__value");
-	if typeof(value) == "table" and rawget(value, "__typename") then
+	if typeof(value) == "table" and rawget(value, "__typename") == "ObjectProperty" then
 		repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 	end
 	rawset(prop, "__value", value);
@@ -463,7 +463,7 @@ function Object.writeProperty(self : _Object, name : string, data : { [string]: 
 			end
 			return nil;
 		end
-		
+
 		local blacklist = {
 			"__parent",
 			"__strict",
@@ -498,7 +498,7 @@ function Object.writeProperty(self : _Object, name : string, data : { [string]: 
 
 
 	local value = rawget(guh, "__value");
-	if typeof(value) == "table" and rawget(value, "__typename") then
+	if typeof(value) == "table" and rawget(value, "__typename") == "ObjectProperty" then
 		repeat value = value.__realvalue until typeof(value) ~= "table" or rawget(value, "__typename") ~= "ObjectProperty"
 	end
 	rawset(guh, "__value", value);
@@ -755,14 +755,14 @@ function Object.Prototype.__iter(self)
 	local props = rawget(self, "__properties");
 	return function(_, k)
 		local key, value = next(props, k)
-		
+
 		if typeof(value) == "table" and not rawget(value, "__enumerable") then
 			repeat key, value = next(props, key) until key == nil or (typeof(value) == "table" and rawget(value, "__enumerable"));
 		end
-		
+
 		return key, value
 	end, props, nil;
-	
+
 end
 
 
@@ -770,7 +770,7 @@ function Object.Prototype.__ipairs(self)
 	Object.hasIdentity(self);
 	local i = 0;
 	local props = rawget(self, "__properties");
-	
+
 	return function()
 		i += 1;
 		if i <= #props then
