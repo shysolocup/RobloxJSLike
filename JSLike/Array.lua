@@ -129,10 +129,10 @@ end
 
 
 
---- Adds a new itemto the Array at the given index pushing everything else back
+--- Adds a new item to the Array at the given index pushing everything else back
 -- @param self An Array instance, if you use metamethods you should just ignore this
 -- @param item Item you want to insert.
--- @param index Index you want to insert at
+-- @param index Index you want to insert at, if not given removes the last index
 function Array.Prototype.insert(self : _Array, item : any?, index : number? ) : Object._ObjectProperty
 	Object.hasIdentity(self);
 	local index = index or #self+1;
@@ -179,14 +179,41 @@ end
 
 
 
+--- Removes an item in the Array pushing everything else back
+-- @param self An Array instance, if you use metamethods you should just ignore this
+-- @param index Index you want to delete, if not given removes the last index
+function Array.Prototype.unsert(self : _Array, index : number? ) : Object._ObjectProperty
+	Object.hasIdentity(self);
+	local index = index or #self+1;
+
+	local old = self:at(index);
+	
+	local t = {};
+	
+	for i=1, (#self.__arrayitems)-1 do
+		if i > index then
+			t[i-1] = self:at(i);
+		elseif i < index then
+			t[i] = self:at(i);
+		end
+	end
+
+	for i, v in t do
+		rawget(self, "__properties")[i] = v;
+	end
+
+	Object.delete(self, (#self.__arrayitems));
+	
+	return old;
+end
+
+
+
 --- Removes the last item in the Array
 -- @param self An Array instance, if you use metamethods you should just ignore this
 function Array.Prototype.pop(self : _Array) : Object._ObjectProperty
 	Object.hasIdentity(self);
-	local length = #self-1;
-	local old = self:at(length);
-	table.remove(self, length);
-	return old
+	return self.unset(self)
 end
 
 
@@ -195,9 +222,7 @@ end
 -- @param self An Array instance, if you use metamethods you should just ignore this
 function Array.Prototype.shift(self : _Array) : Object._ObjectProperty
 	Object.hasIdentity(self);
-	local old = self:at(1);
-	table.remove(self, 1);
-	return old
+	return self.unset(self, 1);
 end
 
 
